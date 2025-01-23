@@ -11,8 +11,8 @@ export const metadata: Metadata = {
 
 export default function LoginPage() {
   return (
-    <div className="container flex h-screen w-screen flex-col items-center justify-center">
-      <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
+    <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <div className="bg-white rounded-lg shadow-md p-8 w-full max-w-md">
         <div className="flex flex-col space-y-2 text-center">
           <Image
             src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/wave-McwTzchM8YQSVkpgAADjaegFbYZ1oP.png"
@@ -28,8 +28,10 @@ export default function LoginPage() {
             Enter your email to sign in to your account
           </p>
         </div>
-        <LoginForm />
-        <p className="px-8 text-center text-sm text-muted-foreground">
+        <div className="mt-6">
+          <LoginForm />
+        </div>
+        <p className="mt-6 text-center text-sm text-muted-foreground">
           <Link
             href="/register"
             className="hover:text-brand underline underline-offset-4"
