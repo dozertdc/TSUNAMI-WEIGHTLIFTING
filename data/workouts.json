@@ -1,0 +1,45 @@
+{
+  "2024-12-01": {
+    "exercises": [
+      {
+        "id": "2024-12-01-1",
+        "name": "Snatch",
+        "sets": [{ "weight": 70, "reps": 3 }, { "weight": 80, "reps": 2 }, { "weight": 90, "reps": 2 }]
+      },
+      {
+        "id": "2024-12-01-2",
+        "name": "Clean and Jerk",
+        "sets": [
+          { "weight": 100, "cleans": 2, "jerks": 2 },
+          { "weight": 110, "cleans": 2, "jerks": 2 },
+          { "weight": 120, "cleans": 1, "jerks": 1 }
+        ]
+      }
+    ],
+    "macros": {
+      "protein": 180,
+      "carbs": 250,
+      "fat": 70
+    }
+  },
+  "2024-12-03": {
+    "exercises": [
+      {
+        "id": "2024-12-03-1",
+        "name": "Back Squat",
+        "sets": [{ "weight": 120, "reps": 5 }, { "weight": 130, "reps": 5 }, { "weight": 140, "reps": 5 }]
+      },
+      {
+        "id": "2024-12-03-2",
+        "name": "Bench Press",
+        "sets": [{ "weight": 90, "reps": 8 }, { "weight": 100, "reps": 6 }, { "weight": 110, "reps": 4 }]
+      }
+    ],
+    "macros": {
+      "protein": 200,
+      "carbs": 300,
+      "fat": 65
+    }
+  }
+}
+
