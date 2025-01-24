@@ -7,6 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Exercise, Workouts, MacroData } from '../types/workout';
 import { calculateTonnage, calculateAverageAbsoluteIntensity } from '../utils/tonnageUtils';
 import { formatNumberWithCommas } from '../utils/numberFormat';
+import { generateWorkoutPDF } from '../utils/pdfGenerator';
+import { FileDown } from 'lucide-react';
 
 interface AnalyzerProps {
   workouts: Workouts;
@@ -121,10 +123,27 @@ export const Analyzer: React.FC<AnalyzerProps> = ({ workouts }) => {
     };
   }, [workouts, selectedExercises, startDate, endDate]);
 
+  const handleExport = () => {
+    if (!startDate || !endDate) {
+      alert('Please select a date range first');
+      return;
+    }
+    generateWorkoutPDF(workouts, new Date(startDate), new Date(endDate));
+  };
+
   return (
     <Card className="w-full max-w-4xl mx-auto">
       <CardHeader>
-        <CardTitle className="text-2xl font-bold">Workout Analyzer</CardTitle>
+        <div className="flex justify-between items-center">
+          <CardTitle className="text-2xl font-bold">Workout Analyzer</CardTitle>
+          <Button 
+            onClick={handleExport}
+            className="flex items-center gap-2"
+          >
+            <FileDown className="h-4 w-4" />
+            Export PDF
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
