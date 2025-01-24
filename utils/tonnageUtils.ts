@@ -8,6 +8,10 @@ export const calculateTonnage = (exercises: Exercise[]): { total: number } => {
     
     return acc + exercise.sets.reduce((setAcc, set) => {
       const weight = set.weight || 0;
+      if (exercise.name === 'Clean and Jerk') {
+        const totalMovements = (set.cleans || 0) + (set.jerks || 0);
+        return setAcc + (weight * totalMovements);
+      }
       const reps = set.reps || 0;
       return setAcc + (weight * reps);
     }, 0);

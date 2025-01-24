@@ -520,11 +520,6 @@ const WorkoutTracker: React.FC = () => {
                                       <p className="font-semibold text-purple-700">Tonnage</p>
                                       <p className="text-2xl font-bold">
                                         {formatNumberWithCommas(Math.round(calculateExerciseTonnage(exercise).total))} kg
-                                        {exercise.name === 'Clean and Jerk' && (
-                                          <span className="text-sm font-normal">
-                                            <br />({formatNumberWithCommas(Math.round(calculateExerciseTonnage(exercise)['Clean and Jerk']))} kg)
-                                          </span>
-                                        )}
                                       </p>
                                     </div>
                                   </div>
