@@ -25,6 +25,7 @@ export function LoginForm() {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const [userId, setUserId] = useState('')
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -52,8 +53,10 @@ export function LoginForm() {
       if (response.ok) {
         // Store in both cookie and localStorage
         document.cookie = `user=${JSON.stringify(data)}; path=/`
+        localStorage.setItem('userId', data.id)
         localStorage.setItem('user', JSON.stringify(data))
         localStorage.setItem('isAuthenticated', 'true')
+        setUserId(data.id)
         router.push('/dashboard')
       } else {
         setError(data.error || 'Login failed')
