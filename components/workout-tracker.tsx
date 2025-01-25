@@ -80,7 +80,14 @@ const WorkoutTracker: React.FC = () => {
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const response = await fetch('http://localhost:3001/api/users/users', {
+        const user = localStorage.getItem('user');
+        if (!user) {
+          console.error('No user found in localStorage');
+          return;
+        }
+        const userId = JSON.parse(user).id;
+
+        const response = await fetch(`http://localhost:3001/api/users/${userId}/user-and-athletes`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',

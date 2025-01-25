@@ -22,12 +22,12 @@ export function Header() {
 
   const handleLogout = () => {
     localStorage.removeItem('isAuthenticated');
-    localStorage.removeItem('userId');
+    localStorage.removeItem('user');
     router.push('/login');
   };
 
   const menuItems = [
-    { label: 'Dashboard', href: '/', icon: Calendar },
+    { label: 'Dashboard', href: '/dashboard', icon: Calendar },
     { label: 'Analyzer', href: '/analyzer', icon: BarChart2 },
     { label: 'Maximums', href: '/maximums', icon: Dumbbell },
     { label: 'Exercise List', href: '/exercises', icon: List },
