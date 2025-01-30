@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Edit, ChevronDown, ChevronUp, GripVertical } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Edit, ChevronDown, ChevronUp, GripVertical, Trash } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useWorkoutState } from '../hooks/useWorkoutState';
@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Badge } from '@/components/ui/badge';
 
 const commonSelectTriggerStyles = "bg-black text-white hover:bg-gray-800 hover:text-white h-9 px-3 text-sm font-bold";
 const commonSelectContentStyles = "bg-black text-white border border-gray-700";
@@ -60,6 +61,7 @@ const WorkoutTracker: React.FC = () => {
     maximums,
     setMaximums,
     logout,
+    deleteExercise,
   } = useWorkoutState();
 
   const [showAnalyzer, setShowAnalyzer] = useState(false);
@@ -378,8 +380,12 @@ const WorkoutTracker: React.FC = () => {
                 const isExpanded = expandedDays.has(dateKey);
                 const tonnage = hasWorkout ? calculateTonnage(dayData.exercises).total : 0;
                 const totalReps = hasWorkout ? dayData.exercises.reduce((total, exercise) => 
-                  total + calculateExerciseReps(exercise).total, 0) : 0;
+                  total + exercise.sets.reduce((setTotal, set) => setTotal + (set.reps || 0), 0)
+                , 0) : 0;
                 const averageIntensity = hasWorkout ? calculateAverageAbsoluteIntensity(dayData.exercises) : 0;
+                const totalSets = hasWorkout ? dayData.exercises.reduce((total, exercise) => 
+                  total + exercise.sets.length, 0
+                ) : 0;
                 
                 return (
                   <Card 
@@ -423,27 +429,34 @@ const WorkoutTracker: React.FC = () => {
                         </Button>
                       </div>
                     </CardHeader>
+                    {hasWorkout && (
+                      <div className="px-6 pb-4">
+                        <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+                          <div className="grid grid-cols-4 gap-4 w-full text-sm">
+                            <div className="bg-blue-50 p-2 rounded-md">
+                              <p className="font-semibold text-blue-700">Sets</p>
+                              <p className="text-2xl font-bold">{formatNumberWithCommas(totalSets)}</p>
+                            </div>
+                            <div className="bg-green-50 p-2 rounded-md">
+                              <p className="font-semibold text-green-700">Reps</p>
+                              <p className="text-2xl font-bold">{formatNumberWithCommas(totalReps)}</p>
+                            </div>
+                            <div className="bg-purple-50 p-2 rounded-md">
+                              <p className="font-semibold text-purple-700">Tonnage</p>
+                              <p className="text-2xl font-bold">{formatNumberWithCommas(Math.round(tonnage))} kg</p>
+                            </div>
+                            <div className="bg-orange-50 p-2 rounded-md">
+                              <p className="font-semibold text-orange-700">Avg Intensity</p>
+                              <p className="text-2xl font-bold">{formatNumberWithCommas(Math.round(averageIntensity))} kg</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     {isExpanded && (
                       <CardContent>
                         {(hasWorkout || (dayData && dayData.macros)) ? (
                           <>
-                            <div className="mb-6 p-4 bg-gray-100 rounded-lg">
-                              <h3 className="text-lg font-semibold mb-3">Day Summary</h3>
-                              <div className="grid grid-cols-3 gap-4 text-sm">
-                                <div className="bg-blue-50 p-2 rounded-md">
-                                  <p className="font-semibold text-blue-700">Total Reps</p>
-                                  <p className="text-2xl font-bold">{formatNumberWithCommas(totalReps)}</p>
-                                </div>
-                                <div className="bg-green-50 p-2 rounded-md">
-                                  <p className="font-semibold text-green-700">Avg Intensity</p>
-                                  <p className="text-2xl font-bold">{formatNumberWithCommas(Math.round(averageIntensity))} kg</p>
-                                </div>
-                                <div className="bg-purple-50 p-2 rounded-md">
-                                  <p className="font-semibold text-purple-700">Total Tonnage</p>
-                                  <p className="text-2xl font-bold">{formatNumberWithCommas(Math.round(tonnage))} kg</p>
-                                </div>
-                              </div>
-                            </div>
                             {dayData && dayData.macros ? (
                               <div className="mb-4 p-4 bg-yellow-50 rounded-lg flex justify-between items-center">
                                 <div>
@@ -466,13 +479,34 @@ const WorkoutTracker: React.FC = () => {
                                 </Button>
                               </div>
                             ) : null}
-                            {dayData.exercises.map((exercise: Exercise, index: number) => (
-                              <Card key={exercise.id} className="mb-4">
+                            {dayData.exercises.map((exercise: Exercise, exerciseIndex: number) => (
+                              <Card 
+                                key={`${dateKey}-exercise-${exerciseIndex}-${exercise.id}`} 
+                                className="mb-4"
+                              >
                                 <CardHeader className="flex flex-row items-center justify-between py-2">
                                   <CardTitle className="text-lg">{exercise.name}</CardTitle>
-                                  <Button variant="ghost" size="sm" onClick={() => startEditingExercise(exercise)}>
-                                    Edit
-                                  </Button>
+                                  <div className="flex gap-2">
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm" 
+                                      onClick={() => startEditingExercise(exercise)}
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="sm"
+                                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                      onClick={() => {
+                                        if (window.confirm('Are you sure you want to delete this exercise?')) {
+                                          deleteExercise(day.date, exercise.id);
+                                        }
+                                      }}
+                                    >
+                                      <Trash className="h-4 w-4" />
+                                    </Button>
+                                  </div>
                                 </CardHeader>
                                 <CardContent>
                                   <table className="w-full">
@@ -480,56 +514,33 @@ const WorkoutTracker: React.FC = () => {
                                       <tr>
                                         <th className="text-left">Set</th>
                                         <th className="text-left">Weight (kg)</th>
-                                        {exercise.name === 'Clean and Jerk' ? (
-                                          <>
-                                            <th className="text-left">Cleans</th>
-                                            <th className="text-left">Jerks</th>
-                                          </>
-                                        ) : (
-                                          <th className="text-left">Reps</th>
-                                        )}
+                                        <th className="text-left">Reps</th>
+                                        <th className="text-left">Tonnage (kg)</th>
                                       </tr>
                                     </thead>
                                     <tbody>
-                                      {exercise.sets.map((set, index) => (
-                                        <tr key={index}>
-                                          <td>{index + 1}</td>
+                                      {exercise.sets.map((set, setIndex) => (
+                                        <tr key={`${dateKey}-exercise-${exerciseIndex}-set-${setIndex}`}>
+                                          <td>{setIndex + 1}</td>
                                           <td>{set.weight}</td>
-                                          {exercise.name === 'Clean and Jerk' ? (
-                                            <>
-                                              <td>{set.cleans}</td>
-                                              <td>{set.jerks}</td>
-                                            </>
-                                          ) : (
-                                            <td>{set.reps}</td>
-                                          )}
+                                          <td>{set.reps}</td>
+                                          <td>{formatNumberWithCommas((set.weight || 0) * (set.reps || 0))}</td>
                                         </tr>
                                       ))}
+                                      <tr className="border-t font-semibold">
+                                        <td>{exercise.sets.length}</td>
+                                        <td>{formatNumberWithCommas(Math.round(
+                                          exercise.sets.reduce((sum, set) => sum + (set.weight || 0), 0) / exercise.sets.length
+                                        ))}</td>
+                                        <td>{formatNumberWithCommas(
+                                          exercise.sets.reduce((sum, set) => sum + (set.reps || 0), 0)
+                                        )}</td>
+                                        <td>{formatNumberWithCommas(Math.round(
+                                          exercise.sets.reduce((sum, set) => sum + (set.weight || 0) * (set.reps || 0), 0)
+                                        ))}</td>
+                                      </tr>
                                     </tbody>
                                   </table>
-                                  <div className="mt-4 grid grid-cols-3 gap-4 text-sm">
-                                    <div className="bg-blue-50 p-2 rounded-md">
-                                      <p className="font-semibold text-blue-700">Total Reps</p>
-                                      <p className="text-2xl font-bold">
-                                        {formatNumberWithCommas(calculateExerciseReps(exercise).total)}
-                                        {exercise.name === 'Clean and Jerk' && (
-                                          <span className="text-sm font-normal">
-                                            <br />({calculateExerciseReps(exercise).clean} cleans, {calculateExerciseReps(exercise).jerk} jerks)
-                                          </span>
-                                        )}
-                                      </p>
-                                    </div>
-                                    <div className="bg-green-50 p-2 rounded-md">
-                                      <p className="font-semibold text-green-700">Avg Intensity</p>
-                                      <p className="text-2xl font-bold">{formatNumberWithCommas(Math.round(calculateAverageAbsoluteIntensity([exercise])))} kg</p>
-                                    </div>
-                                    <div className="bg-purple-50 p-2 rounded-md">
-                                      <p className="font-semibold text-purple-700">Tonnage</p>
-                                      <p className="text-2xl font-bold">
-                                        {formatNumberWithCommas(Math.round(calculateExerciseTonnage(exercise).total))} kg
-                                      </p>
-                                    </div>
-                                  </div>
                                 </CardContent>
                               </Card>
                             ))}

@@ -89,29 +89,12 @@ export const ExerciseModal: React.FC<ExerciseModalProps> = ({
                   value={set.weight || ''}
                   onChange={(e) => updateSet(index, 'weight', e.target.value)}
                 />
-                {isCleanAndJerk ? (
-                  <>
-                    <Input
-                      type="number"
-                      placeholder="Cleans"
-                      value={set.cleans || ''}
-                      onChange={(e) => updateSet(index, 'cleans', e.target.value)}
-                    />
-                    <Input
-                      type="number"
-                      placeholder="Jerks"
-                      value={set.jerks || ''}
-                      onChange={(e) => updateSet(index, 'jerks', e.target.value)}
-                    />
-                  </>
-                ) : (
-                  <Input
-                    type="number"
-                    placeholder="Reps"
-                    value={set.reps || ''}
-                    onChange={(e) => updateSet(index, 'reps', e.target.value)}
-                  />
-                )}
+                <Input
+                  type="number"
+                  placeholder="Reps"
+                  value={set.reps || ''}
+                  onChange={(e) => updateSet(index, 'reps', e.target.value)}
+                />
               </div>
             ))}
             <Button onClick={handleAddSet} variant="outline">

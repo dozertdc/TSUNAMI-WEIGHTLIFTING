@@ -92,33 +92,44 @@ export const useWorkoutState = () => {
 
   const saveExercise = () => {
     if (!selectedDate) return;
-    
+
     const dateKey = selectedDate.toISOString().split('T')[0];
-    const exerciseToSave = editingExercise || newExercise;
+    const exerciseToSave = editingExercise || {
+      ...newExercise,
+      id: Date.now().toString() // Generate new ID for new exercises
+    };
 
     if (exerciseToSave.name && exerciseToSave.sets.length > 0) {
       setWorkouts(prev => {
-        const updatedWorkouts = { ...prev };
-        if (!updatedWorkouts[dateKey]) {
-          updatedWorkouts[dateKey] = { exercises: [] };
-        }
-        if (!updatedWorkouts[dateKey].exercises) {
-          updatedWorkouts[dateKey].exercises = [];
-        }
+        const existingWorkout = prev[dateKey] || { exercises: [] };
+        
         if (editingExercise) {
-          updatedWorkouts[dateKey].exercises = updatedWorkouts[dateKey].exercises.map(ex => 
-            ex.id === editingExercise.id ? { ...exerciseToSave, id: ex.id } : ex
+          // Update existing exercise
+          const updatedExercises = existingWorkout.exercises.map(ex => 
+            ex.id === editingExercise.id ? exerciseToSave : ex
           );
+          return {
+            ...prev,
+            [dateKey]: {
+              ...existingWorkout,
+              exercises: updatedExercises
+            }
+          };
         } else {
-          const newId = Date.now().toString();
-          updatedWorkouts[dateKey].exercises.push({ ...exerciseToSave, id: newId });
+          // Add new exercise
+          return {
+            ...prev,
+            [dateKey]: {
+              ...existingWorkout,
+              exercises: [...existingWorkout.exercises, exerciseToSave]
+            }
+          };
         }
-        return updatedWorkouts;
       });
     }
-    
-    setNewExercise({ id: '', name: '', sets: [] });
+
     setEditingExercise(null);
+    setNewExercise({ id: '', name: '', sets: [] });
     setShowExerciseModal(false);
   };
 
@@ -185,6 +196,23 @@ export const useWorkoutState = () => {
     setExerciseList(prev => prev.filter(exercise => exercise.id !== id));
   };
 
+  const deleteExercise = (date: Date, exerciseId: string) => {
+    const dateKey = date.toISOString().split('T')[0];
+    setWorkouts(prev => {
+      const dayData = prev[dateKey];
+      if (!dayData) return prev;
+
+      const updatedExercises = dayData.exercises.filter(ex => ex.id !== exerciseId);
+      return {
+        ...prev,
+        [dateKey]: {
+          ...dayData,
+          exercises: updatedExercises
+        }
+      };
+    });
+  };
+
   const logout = () => {
     console.log('Logging out');
     if (typeof window !== 'undefined') {
@@ -237,6 +265,7 @@ export const useWorkoutState = () => {
     removeExerciseFromList,
     maximums,
     setMaximums,
+    deleteExercise,
     logout,
   };
 };
