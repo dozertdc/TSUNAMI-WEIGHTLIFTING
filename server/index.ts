@@ -1,36 +1,36 @@
 import express from 'express';
 import cors from 'cors';
 import userRoutes from './routes/user.routes';
-import exerciseRoutes from './routes/exercises.routes';
 import nutritionRoutes from './routes/nutrition.routes';
+import exerciseRoutes from './routes/exercises.routes';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3001;
 
-// Configure CORS before other middleware
+// Configure CORS
 app.use(cors({
-  origin: ['http://localhost:3000'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  origin: 'http://localhost:3000',
   credentials: true
 }));
 
-// Add logging middleware to debug route hits
-app.use((req, res, next) => {
-  console.log(`${req.method} ${req.url}`);
-  next();
-});
-
 app.use(express.json());
 
-// Mount routes with logging
-app.use('/api/exercises', (req, res, next) => {
-  console.log('Exercise route hit:', req.method, req.url);
-  next();
-}, exerciseRoutes);
-
+// Routes
 app.use('/api/users', userRoutes);
 app.use('/api/nutrition', nutritionRoutes);
+app.use('/api/exercises', exerciseRoutes);
+
+// Error handling middleware
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error(err.stack);
+  res.status(500).json({ 
+    error: 'Internal Server Error',
+    details: err.message 
+  });
+});
 
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);

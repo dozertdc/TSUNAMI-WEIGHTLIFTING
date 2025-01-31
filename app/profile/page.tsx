@@ -9,6 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from "@/components/ui/use-toast";
 import { Edit, Save, X } from 'lucide-react';
+import AuthCheck from '@/components/auth/AuthCheck';
 
 interface Coach {
   id: string;
@@ -176,160 +177,162 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="container mx-auto p-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>Profile Settings</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {error && (
-            <div className="text-red-500 mb-4">{error}</div>
-          )}
-          <form className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="first_name">First Name</Label>
-                <Input
-                  id="first_name"
-                  value={profile.first_name}
-                  onChange={(e) => setProfile(prev => ({ ...prev, first_name: e.target.value }))}
-                  disabled={!isEditing}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="last_name">Last Name</Label>
-                <Input
-                  id="last_name"
-                  value={profile.last_name}
-                  onChange={(e) => setProfile(prev => ({ ...prev, last_name: e.target.value }))}
-                  disabled={!isEditing}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={profile.email}
-                onChange={(e) => setProfile(prev => ({ ...prev, email: e.target.value }))}
-                disabled={!isEditing}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="birthdate">Birthdate</Label>
-              <Input
-                id="birthdate"
-                type="date"
-                value={profile.birthdate}
-                onChange={(e) => setProfile(prev => ({ ...prev, birthdate: e.target.value }))}
-                disabled={!isEditing}
-              />
-            </div>
-
-            <div className="flex space-x-4">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="is_coach"
-                  checked={profile.is_coach}
-                  onCheckedChange={(checked) => 
-                    setProfile(prev => ({ ...prev, is_coach: checked as boolean }))
-                  }
-                  disabled={!isEditing}
-                />
-                <Label htmlFor="is_coach">Coach</Label>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="is_athlete"
-                  checked={profile.is_athlete}
-                  onCheckedChange={(checked) => 
-                    setProfile(prev => ({ ...prev, is_athlete: checked as boolean }))
-                  }
-                  disabled={!isEditing}
-                />
-                <Label htmlFor="is_athlete">Athlete</Label>
-              </div>
-            </div>
-
-            {profile.is_athlete && (
-              <div className="space-y-2">
-                <Label 
-                  htmlFor="coach" 
-                  className={coaches.length === 0 ? "text-gray-400" : ""}
-                >
-                  Coach {coaches.length === 0 && "(No coaches available)"}
-                </Label>
-                <Select
-                  value={profile.coached_by || "none"}
-                  onValueChange={handleCoachSelect}
-                  disabled={!isEditing || coaches.length === 0}
-                >
-                  <SelectTrigger className={coaches.length === 0 ? "bg-gray-100" : ""}>
-                    <SelectValue 
-                      defaultValue="none"
-                      placeholder={
-                        coaches.length === 0 
-                          ? "No coaches available" 
-                          : getSelectedCoachName() || "Select a coach"
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Select a coach</SelectItem>
-                    {coaches.map((coach) => (
-                      <SelectItem key={coach.id} value={coach.id}>
-                        {coach.first_name} {coach.last_name} - {coach.email}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {coaches.length === 0 && (
-                  <p className="text-sm text-gray-500 mt-1">
-                    No coaches are currently registered in the system
-                  </p>
-                )}
-              </div>
+    <AuthCheck>
+      <div className="container mx-auto p-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Profile Settings</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {error && (
+              <div className="text-red-500 mb-4">{error}</div>
             )}
+            <form className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="first_name">First Name</Label>
+                  <Input
+                    id="first_name"
+                    value={profile.first_name}
+                    onChange={(e) => setProfile(prev => ({ ...prev, first_name: e.target.value }))}
+                    disabled={!isEditing}
+                  />
+                </div>
 
-            <div className="flex justify-end gap-2 pt-6">
-              {!isEditing ? (
-                <Button 
-                  type="button"
-                  onClick={handleEdit} 
-                  variant="outline"
-                >
-                  <Edit className="h-4 w-4 mr-2" />
-                  Edit Profile
-                </Button>
-              ) : (
-                <>
+                <div className="space-y-2">
+                  <Label htmlFor="last_name">Last Name</Label>
+                  <Input
+                    id="last_name"
+                    value={profile.last_name}
+                    onChange={(e) => setProfile(prev => ({ ...prev, last_name: e.target.value }))}
+                    disabled={!isEditing}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={profile.email}
+                  onChange={(e) => setProfile(prev => ({ ...prev, email: e.target.value }))}
+                  disabled={!isEditing}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="birthdate">Birthdate</Label>
+                <Input
+                  id="birthdate"
+                  type="date"
+                  value={profile.birthdate}
+                  onChange={(e) => setProfile(prev => ({ ...prev, birthdate: e.target.value }))}
+                  disabled={!isEditing}
+                />
+              </div>
+
+              <div className="flex space-x-4">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="is_coach"
+                    checked={profile.is_coach}
+                    onCheckedChange={(checked) => 
+                      setProfile(prev => ({ ...prev, is_coach: checked as boolean }))
+                    }
+                    disabled={!isEditing}
+                  />
+                  <Label htmlFor="is_coach">Coach</Label>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="is_athlete"
+                    checked={profile.is_athlete}
+                    onCheckedChange={(checked) => 
+                      setProfile(prev => ({ ...prev, is_athlete: checked as boolean }))
+                    }
+                    disabled={!isEditing}
+                  />
+                  <Label htmlFor="is_athlete">Athlete</Label>
+                </div>
+              </div>
+
+              {profile.is_athlete && (
+                <div className="space-y-2">
+                  <Label 
+                    htmlFor="coach" 
+                    className={coaches.length === 0 ? "text-gray-400" : ""}
+                  >
+                    Coach {coaches.length === 0 && "(No coaches available)"}
+                  </Label>
+                  <Select
+                    value={profile.coached_by || "none"}
+                    onValueChange={handleCoachSelect}
+                    disabled={!isEditing || coaches.length === 0}
+                  >
+                    <SelectTrigger className={coaches.length === 0 ? "bg-gray-100" : ""}>
+                      <SelectValue 
+                        defaultValue="none"
+                        placeholder={
+                          coaches.length === 0 
+                            ? "No coaches available" 
+                            : getSelectedCoachName() || "Select a coach"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Select a coach</SelectItem>
+                      {coaches.map((coach) => (
+                        <SelectItem key={coach.id} value={coach.id}>
+                          {coach.first_name} {coach.last_name} - {coach.email}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {coaches.length === 0 && (
+                    <p className="text-sm text-gray-500 mt-1">
+                      No coaches are currently registered in the system
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-6">
+                {!isEditing ? (
                   <Button 
                     type="button"
-                    onClick={handleCancel} 
+                    onClick={handleEdit} 
                     variant="outline"
                   >
-                    <X className="h-4 w-4 mr-2" />
-                    Cancel
+                    <Edit className="h-4 w-4 mr-2" />
+                    Edit Profile
                   </Button>
-                  <Button 
-                    type="submit"
-                    onClick={handleSubmit} 
-                    disabled={isLoading}
-                  >
-                    <Save className="h-4 w-4 mr-2" />
-                    {isLoading ? 'Saving...' : 'Save Changes'}
-                  </Button>
-                </>
-              )}
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+                ) : (
+                  <>
+                    <Button 
+                      type="button"
+                      onClick={handleCancel} 
+                      variant="outline"
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Cancel
+                    </Button>
+                    <Button 
+                      type="submit"
+                      onClick={handleSubmit} 
+                      disabled={isLoading}
+                    >
+                      <Save className="h-4 w-4 mr-2" />
+                      {isLoading ? 'Saving...' : 'Save Changes'}
+                    </Button>
+                  </>
+                )}
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    </AuthCheck>
   );
 } 

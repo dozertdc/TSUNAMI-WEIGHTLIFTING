@@ -12,18 +12,25 @@ import {
   Dumbbell, 
   List, 
   User, 
-  Settings, 
   LogOut,
   Utensils
 } from 'lucide-react';
+import { useToast } from "@/components/ui/use-toast";
 
 export function Header() {
   const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { toast } = useToast();
 
   const handleLogout = () => {
-    localStorage.removeItem('isAuthenticated');
+    // Clear all auth-related data
     localStorage.removeItem('user');
+    
+    toast({
+      title: "Logged Out",
+      description: "You have been successfully logged out",
+    });
+    
     router.push('/login');
   };
 
@@ -34,7 +41,6 @@ export function Header() {
     { label: 'Nutrition', href: '/nutrition', icon: Utensils },
     { label: 'Exercise List', href: '/exercises', icon: List },
     { label: 'Profile', href: '/profile', icon: User },
-    { label: 'Settings', href: '/settings', icon: Settings },
   ];
 
   return (
