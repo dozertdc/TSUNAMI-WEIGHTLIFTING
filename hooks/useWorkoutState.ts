@@ -52,28 +52,58 @@ export const useWorkoutState = () => {
 
   const addSet = () => {
     if (editingExercise) {
-      setEditingExercise(prev => ({
-        ...prev!,
-        sets: [...prev!.sets, { weight: 0, reps: 0, cleans: 0, jerks: 0 }]
-      }));
+      setEditingExercise(prev => {
+        if (!prev) return null;
+        const newSet = {
+          weight: 0,
+          reps: 0,
+          ...(prev.isComplex ? prev.complexParts?.reduce((acc, _, index) => ({
+            ...acc,
+            [`exercise${index}Reps`]: 0
+          }), {}) : {})
+        };
+        return {
+          ...prev,
+          sets: [...prev.sets, newSet]
+        };
+      });
     } else {
-      setNewExercise(prev => ({
-        ...prev,
-        sets: [...prev.sets, { weight: 0, reps: 0, cleans: 0, jerks: 0 }]
-      }));
+      setNewExercise(prev => {
+        const newSet = {
+          weight: 0,
+          reps: 0,
+          ...(prev.isComplex ? prev.complexParts?.reduce((acc, _, index) => ({
+            ...acc,
+            [`exercise${index}Reps`]: 0
+          }), {}) : {})
+        };
+        return {
+          ...prev,
+          sets: [...prev.sets, newSet]
+        };
+      });
     }
   };
 
-  const updateSet = (index: number, field: keyof Set, value: string) => {
+  const updateSet = (index: number, field: keyof Set | string, value: string) => {
     const updateExercise = (exercise: Exercise): Exercise => ({
       ...exercise,
       sets: exercise.sets.map((set, i) => 
-        i === index ? { ...set, [field]: parseFloat(value) || 0 } : set
+        i === index ? { 
+          ...set, 
+          [field]: field === 'weight' ? parseFloat(value) || 0 : 
+                   field.endsWith('Reps') ? parseInt(value) || 0 : 
+                   parseFloat(value) || 0 
+        } : set
       )
     });
 
     if (editingExercise) {
-      setEditingExercise(prev => updateExercise(prev!));
+      setEditingExercise(prev => {
+        if (!prev) return null;
+        const updated = updateExercise(prev);
+        return updated;
+      });
     } else {
       setNewExercise(prev => updateExercise(prev));
     }
@@ -90,13 +120,36 @@ export const useWorkoutState = () => {
     return response.json();
   };
 
+  const startEditingExercise = (exercise: Exercise) => {
+    // Create a deep copy of the exercise to avoid reference issues
+    const exerciseCopy = {
+      ...exercise,
+      sets: exercise.sets.map(set => ({
+        ...set,
+        weight: set.weight || 0,
+        reps: set.reps || 0,
+        // Copy any complex exercise reps
+        ...Object.keys(set)
+          .filter(key => key.endsWith('Reps'))
+          .reduce((acc, key) => ({
+            ...acc,
+            [key]: set[key] || 0
+          }), {})
+      })),
+      complexParts: exercise.complexParts ? [...exercise.complexParts] : undefined
+    };
+    
+    setEditingExercise(exerciseCopy);
+    setShowExerciseModal(true);
+  };
+
   const saveExercise = () => {
     if (!selectedDate) return;
 
     const dateKey = selectedDate.toISOString().split('T')[0];
     const exerciseToSave = editingExercise || {
       ...newExercise,
-      id: Date.now().toString() // Generate new ID for new exercises
+      id: Date.now().toString()
     };
 
     if (exerciseToSave.name && exerciseToSave.sets.length > 0) {
@@ -131,11 +184,6 @@ export const useWorkoutState = () => {
     setEditingExercise(null);
     setNewExercise({ id: '', name: '', sets: [] });
     setShowExerciseModal(false);
-  };
-
-  const startEditingExercise = (exercise: Exercise) => {
-    setEditingExercise({ ...exercise });
-    setShowExerciseModal(true);
   };
 
   const openDayDetailView = (date: Date) => {

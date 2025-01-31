@@ -8,6 +8,13 @@ export const calculateTonnage = (exercises: Exercise[]): { total: number } => {
     
     return acc + exercise.sets.reduce((setAcc, set) => {
       const weight = set.weight || 0;
+      if (exercise.isComplex) {
+        // Sum up reps from all parts of the complex
+        const totalReps = Object.keys(set)
+          .filter(key => key.endsWith('Reps'))
+          .reduce((sum, key) => sum + (Number(set[key]) || 0), 0);
+        return setAcc + (weight * totalReps);
+      }
       const reps = set.reps || 0;
       return setAcc + (weight * reps);
     }, 0);

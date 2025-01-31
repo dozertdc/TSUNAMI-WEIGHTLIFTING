@@ -3,7 +3,7 @@ import workoutsData from '../data/workouts.json';
 import maximumsData from '../data/maximums.json';
 import { Exercise, Workouts, Maximums } from '../types/workout';
 
-export const getExercises = (): Exercise[] => {
+export const getExercises = (): { id: string; name: string; }[] => {
   return exercisesData;
 };
 

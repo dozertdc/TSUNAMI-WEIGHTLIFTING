@@ -1,12 +1,20 @@
+export interface ComplexPart {
+  name: string;
+  reps: number;
+}
+
 export interface Exercise {
   id: string;
   name: string;
   sets: Set[];
+  isComplex?: boolean;
+  complexParts?: ComplexPart[];
 }
 
 export interface Set {
   weight: number;
-  reps: number;
+  reps?: number;
+  [key: string]: number | undefined; // This allows for dynamic rep fields like 'exercise0Reps', 'exercise1Reps', etc.
 }
 
 export interface Workouts {

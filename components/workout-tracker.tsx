@@ -379,9 +379,21 @@ const WorkoutTracker: React.FC = () => {
                 const hasWorkout = dayData?.exercises && dayData.exercises.length > 0;
                 const isExpanded = expandedDays.has(dateKey);
                 const tonnage = hasWorkout ? calculateTonnage(dayData.exercises).total : 0;
-                const totalReps = hasWorkout ? dayData.exercises.reduce((total, exercise) => 
-                  total + exercise.sets.reduce((setTotal, set) => setTotal + (set.reps || 0), 0)
-                , 0) : 0;
+                const totalReps = hasWorkout ? dayData.exercises.reduce((total, exercise) => {
+                  if (exercise.isComplex) {
+                    // For complex exercises, sum up all reps from all parts
+                    return total + exercise.sets.reduce((setTotal, set) => {
+                      return setTotal + Object.keys(set)
+                        .filter(key => key.endsWith('Reps'))
+                        .reduce((sum, key) => sum + (Number(set[key]) || 0), 0);
+                    }, 0);
+                  } else {
+                    // For regular exercises
+                    return total + exercise.sets.reduce((setTotal, set) => 
+                      setTotal + (set.reps || 0), 0
+                    );
+                  }
+                }, 0) : 0;
                 const averageIntensity = hasWorkout ? calculateAverageAbsoluteIntensity(dayData.exercises) : 0;
                 const totalSets = hasWorkout ? dayData.exercises.reduce((total, exercise) => 
                   total + exercise.sets.length, 0
@@ -519,24 +531,83 @@ const WorkoutTracker: React.FC = () => {
                                       </tr>
                                     </thead>
                                     <tbody>
-                                      {exercise.sets.map((set, setIndex) => (
-                                        <tr key={`${dateKey}-exercise-${exerciseIndex}-set-${setIndex}`}>
-                                          <td>{setIndex + 1}</td>
-                                          <td>{set.weight}</td>
-                                          <td>{set.reps}</td>
-                                          <td>{formatNumberWithCommas((set.weight || 0) * (set.reps || 0))}</td>
-                                        </tr>
-                                      ))}
+                                      {exercise.sets.map((set, setIndex) => {
+                                        // Calculate total reps for complex exercises
+                                        const totalReps = exercise.isComplex
+                                          ? Object.keys(set)
+                                              .filter(key => key.endsWith('Reps'))
+                                              .reduce((sum, key) => sum + (Number(set[key]) || 0), 0)
+                                          : set.reps || 0;
+
+                                        // Calculate tonnage for this set
+                                        const setTonnage = (set.weight || 0) * totalReps;
+
+                                        return (
+                                          <tr key={`${dateKey}-exercise-${exerciseIndex}-set-${setIndex}`}>
+                                            <td>{setIndex + 1}</td>
+                                            <td>{set.weight}</td>
+                                            <td>
+                                              {exercise.isComplex ? (
+                                                <div>
+                                                  <div>{totalReps}</div>
+                                                  <div className="text-sm text-gray-500">
+                                                    ({exercise.complexParts?.map((part, i) => (
+                                                      <span key={i}>
+                                                        {i > 0 && ' + '}
+                                                        {set[`exercise${i}Reps`] || 0}
+                                                      </span>
+                                                    ))})
+                                                  </div>
+                                                </div>
+                                              ) : (
+                                                set.reps
+                                              )}
+                                            </td>
+                                            <td>{formatNumberWithCommas(setTonnage)}</td>
+                                          </tr>
+                                        );
+                                      })}
                                       <tr className="border-t font-semibold">
                                         <td>{exercise.sets.length}</td>
                                         <td>{formatNumberWithCommas(Math.round(
                                           exercise.sets.reduce((sum, set) => sum + (set.weight || 0), 0) / exercise.sets.length
                                         ))}</td>
-                                        <td>{formatNumberWithCommas(
-                                          exercise.sets.reduce((sum, set) => sum + (set.reps || 0), 0)
-                                        )}</td>
+                                        <td>
+                                          {exercise.isComplex ? (
+                                            <>
+                                              <div>{formatNumberWithCommas(
+                                                exercise.sets.reduce((total, set) => 
+                                                  total + Object.keys(set)
+                                                    .filter(key => key.endsWith('Reps'))
+                                                    .reduce((sum, key) => sum + (Number(set[key]) || 0), 0)
+                                              , 0)
+                                              )}</div>
+                                              <div className="text-sm text-gray-500">
+                                                ({exercise.complexParts?.map((part, i) => (
+                                                  <span key={i}>
+                                                    {i > 0 && ' + '}
+                                                    {formatNumberWithCommas(
+                                                      exercise.sets.reduce((sum, set) => sum + (Number(set[`exercise${i}Reps`]) || 0), 0)
+                                                    )}
+                                                  </span>
+                                                ))})
+                                              </div>
+                                            </>
+                                          ) : (
+                                            formatNumberWithCommas(
+                                              exercise.sets.reduce((sum, set) => sum + (set.reps || 0), 0)
+                                            )
+                                          )}
+                                        </td>
                                         <td>{formatNumberWithCommas(Math.round(
-                                          exercise.sets.reduce((sum, set) => sum + (set.weight || 0) * (set.reps || 0), 0)
+                                          exercise.sets.reduce((sum, set) => {
+                                            const totalReps = exercise.isComplex
+                                              ? Object.keys(set)
+                                                  .filter(key => key.endsWith('Reps'))
+                                                  .reduce((sum, key) => sum + (Number(set[key]) || 0), 0)
+                                              : set.reps || 0;
+                                            return sum + (set.weight || 0) * totalReps;
+                                          }, 0)
                                         ))}</td>
                                       </tr>
                                     </tbody>
