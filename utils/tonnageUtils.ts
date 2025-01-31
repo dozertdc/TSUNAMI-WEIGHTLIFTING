@@ -70,8 +70,18 @@ export const calculateAverageAbsoluteIntensity = (exercises: Exercise[]): number
 
   exercises.forEach(exercise => {
     exercise.sets.forEach(set => {
-      totalWeight += set.weight * set.reps;
-      totalReps += set.reps;
+      const weight = set.weight || 0;
+      if (exercise.isComplex) {
+        // Sum up all reps from complex parts
+        const setReps = Object.keys(set)
+          .filter(key => key.endsWith('Reps'))
+          .reduce((sum, key) => sum + (Number(set[key]) || 0), 0);
+        totalWeight += weight * setReps;
+        totalReps += setReps;
+      } else {
+        totalWeight += weight * (set.reps || 0);
+        totalReps += set.reps || 0;
+      }
     });
   });
 

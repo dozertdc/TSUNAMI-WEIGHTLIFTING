@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import userRoutes from './routes/user.routes';
 import exerciseRoutes from './routes/exercises.routes';
+import nutritionRoutes from './routes/nutrition.routes';
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -29,6 +30,7 @@ app.use('/api/exercises', (req, res, next) => {
 }, exerciseRoutes);
 
 app.use('/api/users', userRoutes);
+app.use('/api/nutrition', nutritionRoutes);
 
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);

@@ -13,7 +13,8 @@ import {
   List, 
   User, 
   Settings, 
-  LogOut 
+  LogOut,
+  Utensils
 } from 'lucide-react';
 
 export function Header() {
@@ -30,6 +31,7 @@ export function Header() {
     { label: 'Dashboard', href: '/dashboard', icon: Calendar },
     { label: 'Analyzer', href: '/analyzer', icon: BarChart2 },
     { label: 'Maximums', href: '/maximums', icon: Dumbbell },
+    { label: 'Nutrition', href: '/nutrition', icon: Utensils },
     { label: 'Exercise List', href: '/exercises', icon: List },
     { label: 'Profile', href: '/profile', icon: User },
     { label: 'Settings', href: '/settings', icon: Settings },
