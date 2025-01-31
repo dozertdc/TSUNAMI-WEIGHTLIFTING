@@ -12,12 +12,12 @@ import { Label } from '@/components/ui/label';
 import { useToast } from "@/components/ui/use-toast";
 
 interface DayNutrition {
-  protein: number;
-  carbs: number;
-  fat: number;
-  steps: number;
-  sleep: number;
-  bodyweight: number;
+  protein: number | null;
+  carbs: number | null;
+  fat: number | null;
+  steps: number | null;
+  sleep: number | null;
+  bodyweight: number | null;
 }
 
 const commonSelectTriggerStyles = "bg-black text-white hover:bg-gray-800 hover:text-white h-9 px-3 text-sm font-bold";
@@ -82,12 +82,12 @@ export default function NutritionPage() {
         console.log('Processing date:', dateKey, item);
         
         acc[dateKey] = {
-          protein: Number(item.protein_grams) || 0,
-          carbs: Number(item.carbs_grams) || 0,
-          fat: Number(item.fat_grams) || 0,
-          steps: Number(item.steps) || 0,
-          sleep: Number(item.sleep_hours) || 0,
-          bodyweight: Number(item.bodyweight_kg) || 0
+          protein: Number(item.protein_grams) || null,
+          carbs: Number(item.carbs_grams) || null,
+          fat: Number(item.fat_grams) || null,
+          steps: Number(item.steps) || null,
+          sleep: Number(item.sleep_hours) || null,
+          bodyweight: Number(item.bodyweight_kg) || null
         };
         return acc;
       }, {});
@@ -107,12 +107,12 @@ export default function NutritionPage() {
   const handleValueChange = (date: string, field: keyof DayNutrition, value: string) => {
     const numValue = parseFloat(value) || 0;
     const currentData = unsavedChanges[date] || nutritionData[date] || {
-      protein: 0,
-      carbs: 0,
-      fat: 0,
-      steps: 0,
-      sleep: 0,
-      bodyweight: 0
+      protein: null,
+      carbs: null,
+      fat: null,
+      steps: null,
+      sleep: null,
+      bodyweight: null
     };
 
     const updatedData = {
@@ -313,6 +313,53 @@ export default function NutritionPage() {
     });
   };
 
+  const calculateAverages = (data: Record<string, DayNutrition>) => {
+    const entries = Object.values(data).filter(entry => 
+      entry.protein || entry.carbs || entry.fat || entry.steps || entry.sleep || entry.bodyweight
+    );
+    
+    if (entries.length === 0) return null;
+
+    return {
+      protein: Math.round(entries.reduce((sum, day) => sum + day.protein, 0) / entries.length),
+      carbs: Math.round(entries.reduce((sum, day) => sum + day.carbs, 0) / entries.length),
+      fat: Math.round(entries.reduce((sum, day) => sum + day.fat, 0) / entries.length),
+      steps: Math.round(entries.reduce((sum, day) => sum + day.steps, 0) / entries.length),
+      sleep: Number((entries.reduce((sum, day) => sum + day.sleep, 0) / entries.length).toFixed(1)),
+      bodyweight: Number((entries.reduce((sum, day) => sum + day.bodyweight, 0) / entries.length).toFixed(1)),
+      calories: Math.round(entries.reduce((sum, day) => 
+        sum + calculateCalories(day.protein || 0, day.carbs || 0, day.fat || 0), 0) / entries.length)
+    };
+  };
+
+  // Add function to calculate averages for a specific date range
+  const calculateAveragesForRange = (data: Record<string, DayNutrition>, endDate: Date, days: number) => {
+    const entries = Object.entries(data)
+      .filter(([date]) => {
+        const entryDate = new Date(date);
+        const startDate = new Date(endDate);
+        startDate.setDate(startDate.getDate() - days);
+        return entryDate >= startDate && entryDate <= endDate;
+      })
+      .map(([_, value]) => value)
+      .filter(entry => 
+        entry.protein || entry.carbs || entry.fat || entry.steps || entry.sleep || entry.bodyweight
+      );
+
+    if (entries.length === 0) return null;
+
+    return {
+      protein: Math.round(entries.reduce((sum, day) => sum + day.protein, 0) / entries.length),
+      carbs: Math.round(entries.reduce((sum, day) => sum + day.carbs, 0) / entries.length),
+      fat: Math.round(entries.reduce((sum, day) => sum + day.fat, 0) / entries.length),
+      steps: Math.round(entries.reduce((sum, day) => sum + day.steps, 0) / entries.length),
+      sleep: Number((entries.reduce((sum, day) => sum + day.sleep, 0) / entries.length).toFixed(1)),
+      bodyweight: Number((entries.reduce((sum, day) => sum + day.bodyweight, 0) / entries.length).toFixed(1)),
+      calories: Math.round(entries.reduce((sum, day) => 
+        sum + calculateCalories(day.protein || 0, day.carbs || 0, day.fat || 0), 0) / entries.length)
+    };
+  };
+
   return (
     <div className="container mx-auto p-4">
       <Card>
@@ -407,21 +454,155 @@ export default function NutritionPage() {
           </div>
         </CardHeader>
         <CardContent>
+          <Card className="bg-gray-50 mb-4">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg">Averages</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {/* Monthly Averages */}
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground mb-2">Monthly</div>
+                  <div className="grid grid-cols-3 md:grid-cols-7 gap-4">
+                    <div>
+                      <Label className="text-xs">Calories</Label>
+                      <div className="text-sm font-medium">{calculateAverages(nutritionData)?.calories || '-'} kcal</div>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Protein</Label>
+                      <div className="text-sm font-medium">{calculateAverages(nutritionData)?.protein || '-'}g</div>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Carbs</Label>
+                      <div className="text-sm font-medium">{calculateAverages(nutritionData)?.carbs || '-'}g</div>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Fat</Label>
+                      <div className="text-sm font-medium">{calculateAverages(nutritionData)?.fat || '-'}g</div>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Steps</Label>
+                      <div className="text-sm font-medium">{calculateAverages(nutritionData)?.steps?.toLocaleString() || '-'}</div>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Sleep</Label>
+                      <div className="text-sm font-medium">{calculateAverages(nutritionData)?.sleep || '-'}hrs</div>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Weight</Label>
+                      <div className="text-sm font-medium">{calculateAverages(nutritionData)?.bodyweight || '-'}kg</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 7-Day Averages */}
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground mb-2">Last 7 Days</div>
+                  <div className="grid grid-cols-3 md:grid-cols-7 gap-4">
+                    {(() => {
+                      const sevenDayAvg = calculateAveragesForRange(nutritionData, new Date(), 7);
+                      return (
+                        <>
+                          <div>
+                            <Label className="text-xs">Calories</Label>
+                            <div className="text-sm font-medium">{sevenDayAvg?.calories || '-'} kcal</div>
+                          </div>
+                          <div>
+                            <Label className="text-xs">Protein</Label>
+                            <div className="text-sm font-medium">{sevenDayAvg?.protein || '-'}g</div>
+                          </div>
+                          <div>
+                            <Label className="text-xs">Carbs</Label>
+                            <div className="text-sm font-medium">{sevenDayAvg?.carbs || '-'}g</div>
+                          </div>
+                          <div>
+                            <Label className="text-xs">Fat</Label>
+                            <div className="text-sm font-medium">{sevenDayAvg?.fat || '-'}g</div>
+                          </div>
+                          <div>
+                            <Label className="text-xs">Steps</Label>
+                            <div className="text-sm font-medium">{sevenDayAvg?.steps?.toLocaleString() || '-'}</div>
+                          </div>
+                          <div>
+                            <Label className="text-xs">Sleep</Label>
+                            <div className="text-sm font-medium">{sevenDayAvg?.sleep || '-'}hrs</div>
+                          </div>
+                          <div>
+                            <Label className="text-xs">Weight</Label>
+                            <div className="text-sm font-medium">{sevenDayAvg?.bodyweight || '-'}kg</div>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+
+                {/* 10-Day Averages */}
+                <div>
+                  <div className="text-sm font-medium text-muted-foreground mb-2">Last 10 Days</div>
+                  <div className="grid grid-cols-3 md:grid-cols-7 gap-4">
+                    {(() => {
+                      const tenDayAvg = calculateAveragesForRange(nutritionData, new Date(), 10);
+                      return (
+                        <>
+                          <div>
+                            <Label className="text-xs">Calories</Label>
+                            <div className="text-sm font-medium">{tenDayAvg?.calories || '-'} kcal</div>
+                          </div>
+                          <div>
+                            <Label className="text-xs">Protein</Label>
+                            <div className="text-sm font-medium">{tenDayAvg?.protein || '-'}g</div>
+                          </div>
+                          <div>
+                            <Label className="text-xs">Carbs</Label>
+                            <div className="text-sm font-medium">{tenDayAvg?.carbs || '-'}g</div>
+                          </div>
+                          <div>
+                            <Label className="text-xs">Fat</Label>
+                            <div className="text-sm font-medium">{tenDayAvg?.fat || '-'}g</div>
+                          </div>
+                          <div>
+                            <Label className="text-xs">Steps</Label>
+                            <div className="text-sm font-medium">{tenDayAvg?.steps?.toLocaleString() || '-'}</div>
+                          </div>
+                          <div>
+                            <Label className="text-xs">Sleep</Label>
+                            <div className="text-sm font-medium">{tenDayAvg?.sleep || '-'}hrs</div>
+                          </div>
+                          <div>
+                            <Label className="text-xs">Weight</Label>
+                            <div className="text-sm font-medium">{tenDayAvg?.bodyweight || '-'}kg</div>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           <div className="space-y-4">
             {getDaysInMonth(currentDate).map((day, index) => {
               const dateKey = day.date.toISOString().split('T')[0];
               console.log('Rendering date:', dateKey, nutritionData[dateKey]);
               
               const dayData = nutritionData[dateKey] || {
-                protein: 0,
-                carbs: 0,
-                fat: 0,
-                steps: 0,
-                sleep: 0,
-                bodyweight: 0
+                protein: null,
+                carbs: null,
+                fat: null,
+                steps: null,
+                sleep: null,
+                bodyweight: null
               };
               
-              const calories = calculateCalories(dayData.protein, dayData.carbs, dayData.fat);
+              const calories = dayData.protein || dayData.carbs || dayData.fat 
+                ? calculateCalories(
+                    dayData.protein || 0,
+                    dayData.carbs || 0,
+                    dayData.fat || 0
+                  )
+                : null;
 
               return (
                 <Card 
@@ -440,7 +621,7 @@ export default function NutritionPage() {
                       </span>
                     </div>
                     <div className="flex items-center gap-4">
-                      {(dayData.protein || dayData.carbs || dayData.fat) && (
+                      {calories !== null && (
                         <div className="text-sm">
                           <span className="font-medium">{calories} kcal</span>
                         </div>
@@ -473,7 +654,7 @@ export default function NutritionPage() {
                       <Label className="text-xs">Protein (g)</Label>
                       <Input
                         type="number"
-                        value={unsavedChanges[dateKey]?.protein ?? dayData.protein || ''}
+                        value={unsavedChanges[dateKey]?.protein ?? (dayData.protein ? dayData.protein : '-')}
                         onChange={(e) => handleValueChange(dateKey, 'protein', e.target.value)}
                         className="h-8"
                         disabled={!editingDays.has(dateKey)}
@@ -483,7 +664,7 @@ export default function NutritionPage() {
                       <Label className="text-xs">Carbs (g)</Label>
                       <Input
                         type="number"
-                        value={unsavedChanges[dateKey]?.carbs ?? dayData.carbs || ''}
+                        value={unsavedChanges[dateKey]?.carbs ?? (dayData.carbs ? dayData.carbs : '-')}
                         onChange={(e) => handleValueChange(dateKey, 'carbs', e.target.value)}
                         className="h-8"
                         disabled={!editingDays.has(dateKey)}
@@ -493,7 +674,7 @@ export default function NutritionPage() {
                       <Label className="text-xs">Fat (g)</Label>
                       <Input
                         type="number"
-                        value={unsavedChanges[dateKey]?.fat ?? dayData.fat || ''}
+                        value={unsavedChanges[dateKey]?.fat ?? (dayData.fat ? dayData.fat : '-')}
                         onChange={(e) => handleValueChange(dateKey, 'fat', e.target.value)}
                         className="h-8"
                         disabled={!editingDays.has(dateKey)}
@@ -503,7 +684,7 @@ export default function NutritionPage() {
                       <Label className="text-xs">Steps</Label>
                       <Input
                         type="number"
-                        value={unsavedChanges[dateKey]?.steps ?? dayData.steps || ''}
+                        value={unsavedChanges[dateKey]?.steps ?? (dayData.steps ? dayData.steps : '-')}
                         onChange={(e) => handleValueChange(dateKey, 'steps', e.target.value)}
                         className="h-8"
                         disabled={!editingDays.has(dateKey)}
@@ -512,7 +693,7 @@ export default function NutritionPage() {
                     <div className="space-y-1">
                       <Label className="text-xs">Sleep (hrs)</Label>
                       <Select
-                        value={unsavedChanges[dateKey]?.sleep?.toString() || dayData.sleep?.toString() || ''}
+                        value={unsavedChanges[dateKey]?.sleep?.toString() ?? (dayData.sleep ? dayData.sleep.toString() : '-')}
                         onValueChange={(value) => handleValueChange(dateKey, 'sleep', value)}
                         disabled={!editingDays.has(dateKey)}
                       >
@@ -533,7 +714,7 @@ export default function NutritionPage() {
                       <Input
                         type="number"
                         step="0.1"
-                        value={unsavedChanges[dateKey]?.bodyweight ?? dayData.bodyweight || ''}
+                        value={unsavedChanges[dateKey]?.bodyweight ?? (dayData.bodyweight ? dayData.bodyweight : '-')}
                         onChange={(e) => handleValueChange(dateKey, 'bodyweight', e.target.value)}
                         className="h-8"
                         disabled={!editingDays.has(dateKey)}
