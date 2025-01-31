@@ -95,6 +95,20 @@ const WorkoutTracker: React.FC = () => {
   const weeklyTonnage = useMemo(() => calculateWeeklyTonnage(currentDate, workouts), [currentDate, workouts]);
   const monthlyTonnage = useMemo(() => calculateMonthlyTonnage(currentDate, workouts), [currentDate, workouts]);
 
+  // Add scroll to today functionality
+  const scrollToToday = () => {
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    const element = document.getElementById(`day-${todayStr}`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(scrollToToday, 100);
+    return () => clearTimeout(timer);
+  }, [workouts]);
 
   const handleSaveMacros = (macros: MacroData) => {
     if (selectedDate) {
@@ -161,100 +175,274 @@ const WorkoutTracker: React.FC = () => {
     // Here you could fetch the selected user's workouts
   };
 
+  // Add these calculations near your other useMemo hooks
+  const weeklyStats = useMemo(() => {
+    const weekStart = new Date(currentDate);
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+    
+    let totalSets = 0;
+    let totalReps = 0;
+    let totalTonnage = 0;
+    let totalIntensity = 0;
+    let exerciseCount = 0;
+
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(weekStart);
+      date.setDate(date.getDate() + i);
+      const dateKey = date.toISOString().split('T')[0];
+      const dayData = workouts[dateKey];
+
+      if (dayData?.exercises) {
+        dayData.exercises.forEach(exercise => {
+          totalSets += exercise.sets.length;
+          
+          exercise.sets.forEach(set => {
+            const reps = exercise.isComplex
+              ? Object.keys(set)
+                  .filter(key => key.endsWith('Reps'))
+                  .reduce((sum, key) => sum + (Number(set[key]) || 0), 0)
+              : set.reps || 0;
+            
+            totalReps += reps;
+            totalTonnage += (set.weight || 0) * reps;
+          });
+          exerciseCount++;
+        });
+      }
+    }
+
+    const avgIntensity = exerciseCount > 0 ? totalTonnage / totalReps : 0;
+
+    return {
+      sets: totalSets,
+      reps: totalReps,
+      tonnage: totalTonnage,
+      avgIntensity
+    };
+  }, [currentDate, workouts]);
+
+  // Calculate Acute:Chronic Workload Ratio
+  const acwr = useMemo(() => {
+    const acute = weeklyStats.tonnage; // 7-day tonnage
+    
+    // Calculate 28-day average tonnage
+    const fourWeeksAgo = new Date(currentDate);
+    fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
+    
+    let chronicTonnage = 0;
+    for (let i = 0; i < 28; i++) {
+      const date = new Date(fourWeeksAgo);
+      date.setDate(date.getDate() + i);
+      const dateKey = date.toISOString().split('T')[0];
+      const dayData = workouts[dateKey];
+
+      if (dayData?.exercises) {
+        dayData.exercises.forEach(exercise => {
+          exercise.sets.forEach(set => {
+            const reps = exercise.isComplex
+              ? Object.keys(set)
+                  .filter(key => key.endsWith('Reps'))
+                  .reduce((sum, key) => sum + (Number(set[key]) || 0), 0)
+              : set.reps || 0;
+            
+            chronicTonnage += (set.weight || 0) * reps;
+          });
+        });
+      }
+    }
+
+    const chronicAverage = chronicTonnage / 4; // 28-day tonnage divided by 4
+    return chronicAverage > 0 ? acute / chronicAverage : 0;
+  }, [currentDate, workouts, weeklyStats.tonnage]);
+
+  // Add this new useMemo calculation after weeklyStats
+  const monthlyStats = useMemo(() => {
+    const monthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+    const monthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+    
+    let totalSets = 0;
+    let totalReps = 0;
+    let totalTonnage = 0;
+    let totalIntensity = 0;
+    let exerciseCount = 0;
+
+    for (let d = new Date(monthStart); d <= monthEnd; d.setDate(d.getDate() + 1)) {
+      const dateKey = d.toISOString().split('T')[0];
+      const dayData = workouts[dateKey];
+
+      if (dayData?.exercises) {
+        dayData.exercises.forEach(exercise => {
+          totalSets += exercise.sets.length;
+          
+          exercise.sets.forEach(set => {
+            const reps = exercise.isComplex
+              ? Object.keys(set)
+                  .filter(key => key.endsWith('Reps'))
+                  .reduce((sum, key) => sum + (Number(set[key]) || 0), 0)
+              : set.reps || 0;
+            
+            totalReps += reps;
+            totalTonnage += (set.weight || 0) * reps;
+          });
+          exerciseCount++;
+        });
+      }
+    }
+
+    const avgIntensity = exerciseCount > 0 ? totalTonnage / totalReps : 0;
+
+    return {
+      sets: totalSets,
+      reps: totalReps,
+      tonnage: totalTonnage,
+      avgIntensity
+    };
+  }, [currentDate, workouts]);
+
   return (
     <div>
-      <Card className="mb-6">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Select
-              value={selectedUserId}
-              onValueChange={handleUserChange}
-            >
-              <SelectTrigger className={`${commonSelectTriggerStyles} w-[200px]`}>
-                <SelectValue placeholder="Select User">
-                  {users.find(u => u.id === selectedUserId)
-                    ? `${users.find(u => u.id === selectedUserId)?.firstName} ${users.find(u => u.id === selectedUserId)?.lastName}`
-                    : 'Select User'}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent className={commonSelectContentStyles}>
-                {users.map(user => (
-                  <SelectItem 
-                    key={user.id} 
-                    value={user.id}
-                    className={commonSelectItemStyles}
-                  >
-                    {`${user.firstName} ${user.lastName}`}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <CardTitle className="text-2xl font-bold flex space-x-4">
+      <Card>
+        <CardHeader className="sticky top-16 z-10 bg-white border-b">
+          {/* User and Date Selection */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-4">
               <Select
-                value={currentDate.getMonth().toString()}
-                onValueChange={handleMonthChange}
+                value={selectedUserId}
+                onValueChange={handleUserChange}
               >
-                <SelectTrigger className={`${commonSelectTriggerStyles} w-[160px]`}>
-                  <SelectValue>
-                    {new Intl.DateTimeFormat('en-US', { month: 'long' }).format(currentDate)}
+                <SelectTrigger className={`${commonSelectTriggerStyles} w-[200px]`}>
+                  <SelectValue placeholder="Select User">
+                    {users.find(u => u.id === selectedUserId)
+                      ? `${users.find(u => u.id === selectedUserId)?.firstName} ${users.find(u => u.id === selectedUserId)?.lastName}`
+                      : 'Select User'}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent className={commonSelectContentStyles}>
-                  {getMonthOptions().map(option => (
+                  {users.map(user => (
                     <SelectItem 
-                      key={option.value} 
-                      value={option.value}
+                      key={user.id} 
+                      value={user.id}
                       className={commonSelectItemStyles}
                     >
-                      {option.label}
+                      {`${user.firstName} ${user.lastName}`}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
 
-              <Select
-                value={currentDate.getFullYear().toString()}
-                onValueChange={handleYearChange}
+              <div className="flex items-center gap-2">
+                <Select value={currentDate.getMonth().toString()} onValueChange={handleMonthChange}>
+                  <SelectTrigger className={`${commonSelectTriggerStyles} w-[160px]`}>
+                    <SelectValue>
+                      {new Intl.DateTimeFormat('en-US', { month: 'long' }).format(currentDate)}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent className={commonSelectContentStyles}>
+                    {getMonthOptions().map(option => (
+                      <SelectItem 
+                        key={option.value} 
+                        value={option.value}
+                        className={commonSelectItemStyles}
+                      >
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={currentDate.getFullYear().toString()} onValueChange={handleYearChange}>
+                  <SelectTrigger className={`${commonSelectTriggerStyles} w-[100px]`}>
+                    <SelectValue>
+                      {currentDate.getFullYear()}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent className={commonSelectContentStyles}>
+                    {getYearOptions().map(option => (
+                      <SelectItem 
+                        key={option.value} 
+                        value={option.value}
+                        className={commonSelectItemStyles}
+                      >
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() - 1)))}
               >
-                <SelectTrigger className={`${commonSelectTriggerStyles} w-[100px]`}>
-                  <SelectValue>
-                    {currentDate.getFullYear()}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent className={commonSelectContentStyles}>
-                  {getYearOptions().map(option => (
-                    <SelectItem 
-                      key={option.value} 
-                      value={option.value}
-                      className={commonSelectItemStyles}
-                    >
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </CardTitle>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() + 1)))}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() - 1)))}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() + 1)))}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+
+          {/* Summary Statistics */}
+          <div className="space-y-2">
+            {/* Weekly Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2 bg-gray-50 p-2 rounded-lg text-xs">
+              <div className="bg-blue-50 p-2 rounded-lg">
+                <p className="font-semibold text-blue-700">Weekly Sets</p>
+                <p className="text-lg font-bold">{formatNumberWithCommas(weeklyStats.sets)}</p>
+              </div>
+              <div className="bg-green-50 p-2 rounded-lg">
+                <p className="font-semibold text-green-700">Weekly Reps</p>
+                <p className="text-lg font-bold">{formatNumberWithCommas(weeklyStats.reps)}</p>
+              </div>
+              <div className="bg-purple-50 p-2 rounded-lg">
+                <p className="font-semibold text-purple-700">Weekly Tonnage</p>
+                <p className="text-lg font-bold">{formatNumberWithCommas(Math.round(weeklyStats.tonnage))} kg</p>
+              </div>
+              <div className="bg-orange-50 p-2 rounded-lg">
+                <p className="font-semibold text-orange-700">Weekly Intensity</p>
+                <p className="text-lg font-bold">{formatNumberWithCommas(Math.round(weeklyStats.avgIntensity))} kg</p>
+              </div>
+              <div className="bg-indigo-50 p-2 rounded-lg">
+                <p className="font-semibold text-indigo-700">ACWR</p>
+                <p className="text-lg font-bold">{acwr.toFixed(2)}</p>
+              </div>
+            </div>
+
+            {/* Monthly Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2 bg-gray-50 p-2 rounded-lg text-xs">
+              <div className="bg-blue-50 p-2 rounded-lg">
+                <p className="font-semibold text-blue-700">Monthly Sets</p>
+                <p className="text-lg font-bold">{formatNumberWithCommas(monthlyStats.sets)}</p>
+              </div>
+              <div className="bg-green-50 p-2 rounded-lg">
+                <p className="font-semibold text-green-700">Monthly Reps</p>
+                <p className="text-lg font-bold">{formatNumberWithCommas(monthlyStats.reps)}</p>
+              </div>
+              <div className="bg-purple-50 p-2 rounded-lg">
+                <p className="font-semibold text-purple-700">Monthly Tonnage</p>
+                <p className="text-lg font-bold">{formatNumberWithCommas(Math.round(monthlyStats.tonnage))} kg</p>
+              </div>
+              <div className="bg-orange-50 p-2 rounded-lg">
+                <p className="font-semibold text-orange-700">Monthly Intensity</p>
+                <p className="text-lg font-bold">{formatNumberWithCommas(Math.round(monthlyStats.avgIntensity))} kg</p>
+              </div>
+              <div className="bg-indigo-50 p-2 rounded-lg">
+                <p className="font-semibold text-indigo-700">Monthly Avg/Day</p>
+                <p className="text-lg font-bold">{formatNumberWithCommas(Math.round(monthlyStats.tonnage / 30))} kg</p>
+              </div>
+            </div>
           </div>
         </CardHeader>
+
         <CardContent>
-          <div className="space-y-4">
+          <div className="space-y-4 mt-4">
             {getDaysInMonth(currentDate).map((day, index) => {
               const dateKey = day.date.toISOString().split('T')[0];
               const dayData = workouts[dateKey];
@@ -284,9 +472,13 @@ const WorkoutTracker: React.FC = () => {
               return (
                 <Card 
                   key={index}
+                  id={`day-${dateKey}`}
                   className={`${
                     day.isCurrentMonth ? 'bg-white' : 'bg-gray-50'
-                  } ${hasWorkout ? 'border-blue-500' : 'border-gray-200'} transition-all hover:shadow-md`}
+                  } ${hasWorkout ? 'border-blue-500' : 'border-gray-200'} 
+                    transition-all hover:shadow-md ${
+                    dateKey === new Date().toISOString().split('T')[0] ? 'border-2 border-primary' : ''
+                  }`}
                 >
                   <CardHeader className="flex flex-row items-center justify-between py-4">
                     <div className="flex flex-col">
@@ -531,18 +723,6 @@ const WorkoutTracker: React.FC = () => {
                 </Card>
               );
             })}
-          </div>
-          <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            <Card>
-              <CardContent className="py-4">
-                <div className="text-lg font-medium">Weekly Tonnage: {formatNumberWithCommas(Math.round(weeklyTonnage))} kg</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="py-4">
-                <div className="text-lg font-medium">Monthly Tonnage: {formatNumberWithCommas(Math.round(monthlyTonnage))} kg</div>
-              </CardContent>
-            </Card>
           </div>
         </CardContent>
       </Card>

@@ -371,230 +371,241 @@ export default function NutritionPage() {
     };
   };
 
+  const scrollToToday = () => {
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    const element = document.getElementById(`day-${todayStr}`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
+  useEffect(() => {
+    // Wait a bit for the DOM to be ready
+    const timer = setTimeout(scrollToToday, 100);
+    return () => clearTimeout(timer);
+  }, [nutritionData]);
+
   return (
     <AuthCheck>
       <div className="container mx-auto p-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Select
-                value={selectedUserId}
-                onValueChange={(value) => {
-                  console.log('Selected user changed to:', value);
-                  setSelectedUserId(value);
-                }}
-              >
-                <SelectTrigger className={`${commonSelectTriggerStyles} w-[200px]`}>
-                  <SelectValue placeholder="Select User">
-                    {users.find(u => u.id === selectedUserId)
-                      ? `${users.find(u => u.id === selectedUserId)?.firstName} ${users.find(u => u.id === selectedUserId)?.lastName}`
-                      : 'Select User'}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent className={commonSelectContentStyles}>
-                  {users.map(user => (
-                    <SelectItem 
-                      key={user.id} 
-                      value={user.id}
-                      className={commonSelectItemStyles}
-                    >
-                      {`${user.firstName} ${user.lastName}`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <CardTitle className="text-2xl font-bold flex space-x-4">
+          <CardHeader className="sticky top-16 z-10 bg-white border-b">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-4">
                 <Select
-                  value={currentDate.getMonth().toString()}
-                  onValueChange={handleMonthChange}
+                  value={selectedUserId}
+                  onValueChange={setSelectedUserId}
                 >
-                  <SelectTrigger className={`${commonSelectTriggerStyles} w-[160px]`}>
-                    <SelectValue>
-                      {new Intl.DateTimeFormat('en-US', { month: 'long' }).format(currentDate)}
+                  <SelectTrigger className={`${commonSelectTriggerStyles} w-[200px]`}>
+                    <SelectValue placeholder="Select User">
+                      {users.find(u => u.id === selectedUserId)
+                        ? `${users.find(u => u.id === selectedUserId)?.firstName} ${users.find(u => u.id === selectedUserId)?.lastName}`
+                        : 'Select User'}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent className={commonSelectContentStyles}>
-                    {getMonthOptions().map(option => (
-                      <SelectItem 
-                        key={option.value} 
-                        value={option.value}
+                    {users.map(user => (
+                      <SelectItem
+                        key={user.id}
+                        value={user.id}
                         className={commonSelectItemStyles}
                       >
-                        {option.label}
+                        {user.firstName} {user.lastName}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
 
-                <Select
-                  value={currentDate.getFullYear().toString()}
-                  onValueChange={handleYearChange}
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={currentDate.getMonth().toString()}
+                    onValueChange={handleMonthChange}
+                  >
+                    <SelectTrigger className={`${commonSelectTriggerStyles} w-[160px]`}>
+                      <SelectValue>
+                        {new Intl.DateTimeFormat('en-US', { month: 'long' }).format(currentDate)}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent className={commonSelectContentStyles}>
+                      {getMonthOptions().map(option => (
+                        <SelectItem 
+                          key={option.value} 
+                          value={option.value}
+                          className={commonSelectItemStyles}
+                        >
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Select
+                    value={currentDate.getFullYear().toString()}
+                    onValueChange={handleYearChange}
+                  >
+                    <SelectTrigger className={`${commonSelectTriggerStyles} w-[100px]`}>
+                      <SelectValue>{currentDate.getFullYear()}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent className={commonSelectContentStyles}>
+                      {getYearOptions().map(option => (
+                        <SelectItem 
+                          key={option.value} 
+                          value={option.value}
+                          className={commonSelectItemStyles}
+                        >
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() - 1)))}
                 >
-                  <SelectTrigger className={`${commonSelectTriggerStyles} w-[100px]`}>
-                    <SelectValue>{currentDate.getFullYear()}</SelectValue>
-                  </SelectTrigger>
-                  <SelectContent className={commonSelectContentStyles}>
-                    {getYearOptions().map(option => (
-                      <SelectItem 
-                        key={option.value} 
-                        value={option.value}
-                        className={commonSelectItemStyles}
-                      >
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </CardTitle>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() + 1)))}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() - 1)))}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setCurrentDate(new Date(currentDate.setMonth(currentDate.getMonth() + 1)))}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <Card className="bg-gray-50 mb-4">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg">Averages</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {/* Monthly Averages */}
+
+            <div className="space-y-4 bg-gray-50 p-4 rounded-lg">
+              {/* Monthly Averages */}
+              <div>
+                <div className="text-sm font-medium text-muted-foreground mb-2">Monthly</div>
+                <div className="grid grid-cols-3 md:grid-cols-7 gap-4">
                   <div>
-                    <div className="text-sm font-medium text-muted-foreground mb-2">Monthly</div>
-                    <div className="grid grid-cols-3 md:grid-cols-7 gap-4">
-                      <div>
-                        <Label className="text-xs">Calories</Label>
-                        <div className="text-sm font-medium">{calculateAverages(nutritionData)?.calories || '-'} kcal</div>
-                      </div>
-                      <div>
-                        <Label className="text-xs">Protein</Label>
-                        <div className="text-sm font-medium">{calculateAverages(nutritionData)?.protein || '-'}g</div>
-                      </div>
-                      <div>
-                        <Label className="text-xs">Carbs</Label>
-                        <div className="text-sm font-medium">{calculateAverages(nutritionData)?.carbs || '-'}g</div>
-                      </div>
-                      <div>
-                        <Label className="text-xs">Fat</Label>
-                        <div className="text-sm font-medium">{calculateAverages(nutritionData)?.fat || '-'}g</div>
-                      </div>
-                      <div>
-                        <Label className="text-xs">Steps</Label>
-                        <div className="text-sm font-medium">{calculateAverages(nutritionData)?.steps?.toLocaleString() || '-'}</div>
-                      </div>
-                      <div>
-                        <Label className="text-xs">Sleep</Label>
-                        <div className="text-sm font-medium">{calculateAverages(nutritionData)?.sleep || '-'}hrs</div>
-                      </div>
-                      <div>
-                        <Label className="text-xs">Weight</Label>
-                        <div className="text-sm font-medium">{calculateAverages(nutritionData)?.bodyweight || '-'}kg</div>
-                      </div>
+                    <Label className="text-xs text-muted-foreground">Calories</Label>
+                    <div className="text-sm font-medium">
+                      {calculateAverages(nutritionData)?.calories?.toLocaleString() || '-'} kcal
                     </div>
                   </div>
-
-                  {/* 7-Day Averages */}
                   <div>
-                    <div className="text-sm font-medium text-muted-foreground mb-2">Last 7 Days</div>
-                    <div className="grid grid-cols-3 md:grid-cols-7 gap-4">
-                      {(() => {
-                        const sevenDayAvg = calculateAveragesForRange(nutritionData, new Date(), 7);
-                        return (
-                          <>
-                            <div>
-                              <Label className="text-xs">Calories</Label>
-                              <div className="text-sm font-medium">{sevenDayAvg?.calories || '-'} kcal</div>
-                            </div>
-                            <div>
-                              <Label className="text-xs">Protein</Label>
-                              <div className="text-sm font-medium">{sevenDayAvg?.protein || '-'}g</div>
-                            </div>
-                            <div>
-                              <Label className="text-xs">Carbs</Label>
-                              <div className="text-sm font-medium">{sevenDayAvg?.carbs || '-'}g</div>
-                            </div>
-                            <div>
-                              <Label className="text-xs">Fat</Label>
-                              <div className="text-sm font-medium">{sevenDayAvg?.fat || '-'}g</div>
-                            </div>
-                            <div>
-                              <Label className="text-xs">Steps</Label>
-                              <div className="text-sm font-medium">{sevenDayAvg?.steps?.toLocaleString() || '-'}</div>
-                            </div>
-                            <div>
-                              <Label className="text-xs">Sleep</Label>
-                              <div className="text-sm font-medium">{sevenDayAvg?.sleep || '-'}hrs</div>
-                            </div>
-                            <div>
-                              <Label className="text-xs">Weight</Label>
-                              <div className="text-sm font-medium">{sevenDayAvg?.bodyweight || '-'}kg</div>
-                            </div>
-                          </>
-                        );
-                      })()}
-                    </div>
+                    <Label className="text-xs text-muted-foreground">Protein</Label>
+                    <div className="text-sm font-medium">{calculateAverages(nutritionData)?.protein || '-'}g</div>
                   </div>
-
-                  {/* 10-Day Averages */}
                   <div>
-                    <div className="text-sm font-medium text-muted-foreground mb-2">Last 10 Days</div>
-                    <div className="grid grid-cols-3 md:grid-cols-7 gap-4">
-                      {(() => {
-                        const tenDayAvg = calculateAveragesForRange(nutritionData, new Date(), 10);
-                        return (
-                          <>
-                            <div>
-                              <Label className="text-xs">Calories</Label>
-                              <div className="text-sm font-medium">{tenDayAvg?.calories || '-'} kcal</div>
-                            </div>
-                            <div>
-                              <Label className="text-xs">Protein</Label>
-                              <div className="text-sm font-medium">{tenDayAvg?.protein || '-'}g</div>
-                            </div>
-                            <div>
-                              <Label className="text-xs">Carbs</Label>
-                              <div className="text-sm font-medium">{tenDayAvg?.carbs || '-'}g</div>
-                            </div>
-                            <div>
-                              <Label className="text-xs">Fat</Label>
-                              <div className="text-sm font-medium">{tenDayAvg?.fat || '-'}g</div>
-                            </div>
-                            <div>
-                              <Label className="text-xs">Steps</Label>
-                              <div className="text-sm font-medium">{tenDayAvg?.steps?.toLocaleString() || '-'}</div>
-                            </div>
-                            <div>
-                              <Label className="text-xs">Sleep</Label>
-                              <div className="text-sm font-medium">{tenDayAvg?.sleep || '-'}hrs</div>
-                            </div>
-                            <div>
-                              <Label className="text-xs">Weight</Label>
-                              <div className="text-sm font-medium">{tenDayAvg?.bodyweight || '-'}kg</div>
-                            </div>
-                          </>
-                        );
-                      })()}
-                    </div>
+                    <Label className="text-xs text-muted-foreground">Carbs</Label>
+                    <div className="text-sm font-medium">{calculateAverages(nutritionData)?.carbs || '-'}g</div>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Fat</Label>
+                    <div className="text-sm font-medium">{calculateAverages(nutritionData)?.fat || '-'}g</div>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Steps</Label>
+                    <div className="text-sm font-medium">{calculateAverages(nutritionData)?.steps?.toLocaleString() || '-'}</div>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Sleep</Label>
+                    <div className="text-sm font-medium">{calculateAverages(nutritionData)?.sleep || '-'}hrs</div>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Weight</Label>
+                    <div className="text-sm font-medium">{calculateAverages(nutritionData)?.bodyweight?.toFixed(2) || '-'}kg</div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
 
-            <div className="space-y-4">
+              {/* 7-Day Averages */}
+              <div>
+                <div className="text-sm font-medium text-muted-foreground mb-2">Last 7 Days</div>
+                <div className="grid grid-cols-3 md:grid-cols-7 gap-4">
+                  {(() => {
+                    const sevenDayAvg = calculateAveragesForRange(nutritionData, new Date(), 7);
+                    return (
+                      <>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Calories</Label>
+                          <div className="text-sm font-medium">{sevenDayAvg?.calories?.toLocaleString() || '-'} kcal</div>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Protein</Label>
+                          <div className="text-sm font-medium">{sevenDayAvg?.protein || '-'}g</div>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Carbs</Label>
+                          <div className="text-sm font-medium">{sevenDayAvg?.carbs || '-'}g</div>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Fat</Label>
+                          <div className="text-sm font-medium">{sevenDayAvg?.fat || '-'}g</div>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Steps</Label>
+                          <div className="text-sm font-medium">{sevenDayAvg?.steps?.toLocaleString() || '-'}</div>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Sleep</Label>
+                          <div className="text-sm font-medium">{sevenDayAvg?.sleep || '-'}hrs</div>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Weight</Label>
+                          <div className="text-sm font-medium">{sevenDayAvg?.bodyweight?.toFixed(2) || '-'}kg</div>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              {/* 10-Day Averages */}
+              <div>
+                <div className="text-sm font-medium text-muted-foreground mb-2">Last 10 Days</div>
+                <div className="grid grid-cols-3 md:grid-cols-7 gap-4">
+                  {(() => {
+                    const tenDayAvg = calculateAveragesForRange(nutritionData, new Date(), 10);
+                    return (
+                      <>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Calories</Label>
+                          <div className="text-sm font-medium">{tenDayAvg?.calories?.toLocaleString() || '-'} kcal</div>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Protein</Label>
+                          <div className="text-sm font-medium">{tenDayAvg?.protein || '-'}g</div>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Carbs</Label>
+                          <div className="text-sm font-medium">{tenDayAvg?.carbs || '-'}g</div>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Fat</Label>
+                          <div className="text-sm font-medium">{tenDayAvg?.fat || '-'}g</div>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Steps</Label>
+                          <div className="text-sm font-medium">{tenDayAvg?.steps?.toLocaleString() || '-'}</div>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Sleep</Label>
+                          <div className="text-sm font-medium">{tenDayAvg?.sleep || '-'}hrs</div>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Weight</Label>
+                          <div className="text-sm font-medium">{tenDayAvg?.bodyweight?.toFixed(2) || '-'}kg</div>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+            </div>
+          </CardHeader>
+
+          <CardContent className="pt-0">
+            <div className="space-y-4 mt-4">
               {getDaysInMonth(currentDate).map((day, index) => {
                 const dateKey = day.date.toISOString().split('T')[0];
                 console.log('Rendering date:', dateKey, nutritionData[dateKey]);
@@ -619,9 +630,12 @@ export default function NutritionPage() {
                 return (
                   <Card 
                     key={index}
+                    id={`day-${dateKey}`}
                     className={`${
                       day.isCurrentMonth ? 'bg-white' : 'bg-gray-50'
-                    } transition-all hover:shadow-md`}
+                    } transition-all hover:shadow-md ${
+                      dateKey === new Date().toISOString().split('T')[0] ? 'border-2 border-primary' : ''
+                    }`}
                   >
                     <CardHeader 
                       className="flex flex-row items-center justify-between py-2"
@@ -635,7 +649,7 @@ export default function NutritionPage() {
                       <div className="flex items-center gap-4">
                         {calories !== null && (
                           <div className="text-sm">
-                            <span className="font-medium">{calories} kcal</span>
+                            <span className="font-medium">{calories.toLocaleString()} kcal</span>
                           </div>
                         )}
                         {editingDays.has(dateKey) ? (
