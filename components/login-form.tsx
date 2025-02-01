@@ -51,9 +51,6 @@ export function LoginForm() {
       const data = await response.json()
 
       if (response.ok) {
-        // Store in both cookie and localStorage
-        document.cookie = `user=${JSON.stringify(data)}; path=/`
-        localStorage.setItem('userId', data.id)
         localStorage.setItem('user', JSON.stringify(data))
         localStorage.setItem('isAuthenticated', 'true')
         setUserId(data.id)
