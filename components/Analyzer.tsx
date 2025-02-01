@@ -14,6 +14,32 @@ interface AnalyzerProps {
   workouts: Workouts;
 }
 
+const calculateDailyStats = (exercises: Exercise[]) => {
+  let totalTonnage = 0;
+  let totalReps = 0;
+
+  exercises.forEach(exercise => {
+    exercise.sets.forEach(set => {
+      // Handle both complex and regular exercises
+      const reps = exercise.isComplex
+        ? Object.keys(set)
+            .filter(key => key.endsWith('Reps'))
+            .reduce((sum, key) => sum + (Number(set[key]) || 0), 0)
+        : set.reps || 0;
+
+      totalReps += reps;
+      totalTonnage += (set.weight || 0) * reps;
+    });
+  });
+
+  const avgIntensity = totalReps > 0 ? totalTonnage / totalReps : 0;
+
+  return {
+    tonnage: totalTonnage,
+    avgIntensity
+  };
+};
+
 export const Analyzer: React.FC<AnalyzerProps> = ({ workouts }) => {
   const [selectedExercises, setSelectedExercises] = useState<string[]>([]);
   const [startDate, setStartDate] = useState<string>('');
@@ -27,6 +53,30 @@ export const Analyzer: React.FC<AnalyzerProps> = ({ workouts }) => {
     return Array.from(exercises);
   }, [workouts]);
 
+  const dailyData = useMemo(() => {
+    return Object.entries(workouts).map(([date, workout]) => {
+      const { tonnage, avgIntensity } = calculateDailyStats(workout.exercises || []);
+      
+      return {
+        date: new Date(date),
+        tonnage,
+        avgIntensity,
+        exercises: workout.exercises?.length || 0,
+        sets: workout.exercises?.reduce((total, ex) => total + ex.sets.length, 0) || 0,
+        reps: workout.exercises?.reduce((total, ex) => {
+          return total + ex.sets.reduce((setTotal, set) => {
+            const reps = ex.isComplex
+              ? Object.keys(set)
+                  .filter(key => key.endsWith('Reps'))
+                  .reduce((sum, key) => sum + (Number(set[key]) || 0), 0)
+              : set.reps || 0;
+            return setTotal + reps;
+          }, 0);
+        }, 0) || 0
+      };
+    }).sort((a, b) => a.date.getTime() - b.date.getTime());
+  }, [workouts]);
+
   const analyzedData = useMemo(() => {
     if (!startDate || !endDate || selectedExercises.length === 0) return null;
 
@@ -34,94 +84,78 @@ export const Analyzer: React.FC<AnalyzerProps> = ({ workouts }) => {
     let totalReps = 0;
     let totalDays = 0;
     const exercisesInRange: Exercise[] = [];
-    const exerciseStats: { [key: string]: { tonnage: number; reps: number; averageAbsoluteIntensity: number; clean?: { tonnage: number; reps: number }; jerk?: { tonnage: number; reps: number } } } = {};
-    let totalMacros: MacroData = { protein: 0, carbs: 0, fat: 0 };
-    let daysWithMacros = 0;
+    const exerciseStats: { 
+      [key: string]: { 
+        tonnage: number; 
+        reps: number; 
+        averageAbsoluteIntensity: number; 
+        sets: number;
+      } 
+    } = {};
+
     const start = new Date(startDate);
     const end = new Date(endDate);
+
+    // Initialize exercise stats
+    selectedExercises.forEach(name => {
+      exerciseStats[name] = {
+        tonnage: 0,
+        reps: 0,
+        averageAbsoluteIntensity: 0,
+        sets: 0
+      };
+    });
 
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
       const dateKey = d.toISOString().split('T')[0];
       const dailyData = workouts[dateKey];
-      if (dailyData) {
+      
+      if (dailyData?.exercises) {
         totalDays++;
         const filteredExercises = dailyData.exercises.filter(ex =>
           selectedExercises.includes(ex.name)
         );
-        exercisesInRange.push(...filteredExercises);
 
         filteredExercises.forEach(exercise => {
-          if (exercise.name === 'Clean and Jerk') {
-            if (!exerciseStats['Clean and Jerk']) {
-              exerciseStats['Clean and Jerk'] = {
-                clean: { tonnage: 0, reps: 0 },
-                jerk: { tonnage: 0, reps: 0 },
-                averageAbsoluteIntensity: 0
-              };
-            }
-            exercise.sets.forEach(set => {
-              const cleanReps = set.cleans || 0;
-              const jerkReps = set.jerks || 0;
-              const cleanTonnage = set.weight * cleanReps;
-              const jerkTonnage = set.weight * jerkReps;
+          const stats = exerciseStats[exercise.name];
+          stats.sets += exercise.sets.length;
 
-              exerciseStats['Clean and Jerk'].clean.tonnage += cleanTonnage;
-              exerciseStats['Clean and Jerk'].clean.reps += cleanReps;
-              exerciseStats['Clean and Jerk'].jerk.tonnage += jerkTonnage;
-              exerciseStats['Clean and Jerk'].jerk.reps += jerkReps;
+          exercise.sets.forEach(set => {
+            // Calculate reps based on whether it's a complex exercise
+            const reps = exercise.isComplex
+              ? Object.keys(set)
+                  .filter(key => key.endsWith('Reps'))
+                  .reduce((sum, key) => sum + (Number(set[key]) || 0), 0)
+              : set.reps || 0;
 
-              totalTonnage += cleanTonnage + jerkTonnage;
-              totalReps += cleanReps + jerkReps;
-            });
-          } else {
-            if (!exerciseStats[exercise.name]) {
-              exerciseStats[exercise.name] = { tonnage: 0, reps: 0, averageAbsoluteIntensity: 0 };
-            }
-            const exerciseTonnage = calculateTonnage([exercise])[exercise.name];
-            exerciseStats[exercise.name].tonnage += exerciseTonnage;
-            totalTonnage += exerciseTonnage;
-            exercise.sets.forEach(set => {
-              exerciseStats[exercise.name].reps += set.reps;
-              totalReps += set.reps;
-            });
-          }
+            const weight = set.weight || 0;
+            const setTonnage = weight * reps;
+
+            stats.tonnage += setTonnage;
+            stats.reps += reps;
+            totalTonnage += setTonnage;
+            totalReps += reps;
+          });
+
+          // Calculate average intensity after all sets are processed
+          stats.averageAbsoluteIntensity = stats.reps > 0 
+            ? stats.tonnage / stats.reps 
+            : 0;
         });
-
-        if (dailyData.macros) {
-          totalMacros.protein += dailyData.macros.protein;
-          totalMacros.carbs += dailyData.macros.carbs;
-          totalMacros.fat += dailyData.macros.fat;
-          daysWithMacros++;
-        }
       }
     }
 
-    // Calculate average absolute intensity for each exercise and overall
-    const averageAbsoluteIntensity = calculateAverageAbsoluteIntensity(exercisesInRange);
-    Object.keys(exerciseStats).forEach(exerciseName => {
-      if (exerciseName === 'Clean and Jerk') {
-        exerciseStats['Clean and Jerk'].averageAbsoluteIntensity = (exerciseStats['Clean and Jerk'].clean.tonnage + exerciseStats['Clean and Jerk'].jerk.tonnage) / (exerciseStats['Clean and Jerk'].clean.reps + exerciseStats['Clean and Jerk'].jerk.reps);
-      } else {
-        exerciseStats[exerciseName].averageAbsoluteIntensity = exerciseStats[exerciseName].tonnage / exerciseStats[exerciseName].reps;
-      }
-    });
-
-
-    const averageMacros = daysWithMacros > 0 ? {
-      protein: totalMacros.protein / daysWithMacros,
-      carbs: totalMacros.carbs / daysWithMacros,
-      fat: totalMacros.fat / daysWithMacros
-    } : null;
+    // Calculate overall average intensity
+    const averageAbsoluteIntensity = totalReps > 0 ? totalTonnage / totalReps : 0;
 
     return {
+      totalDays,
       totalTonnage,
       totalReps,
       averageAbsoluteIntensity,
       exerciseStats,
-      averageMacros,
-      totalDays
     };
-  }, [workouts, selectedExercises, startDate, endDate]);
+  }, [workouts, startDate, endDate, selectedExercises]);
 
   const handleExport = () => {
     if (!startDate || !endDate) {
@@ -221,95 +255,26 @@ export const Analyzer: React.FC<AnalyzerProps> = ({ workouts }) => {
                           <CardTitle className="text-lg">{exercise}</CardTitle>
                         </CardHeader>
                         <CardContent className="p-4">
-                          {exercise === 'Clean and Jerk' ? (
-                            <div className="space-y-4">
-                              <div className="space-y-2">
-                                <h4 className="font-semibold">Clean</h4>
-                                <div className="flex justify-between items-center">
-                                  <span className="text-sm font-medium text-gray-500">Tonnage</span>
-                                  <span className="text-lg font-bold text-blue-600">{formatNumberWithCommas(Math.round(stats.clean.tonnage))} kg</span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                  <span className="text-sm font-medium text-gray-500">Reps</span>
-                                  <span className="text-lg font-bold text-green-600">{formatNumberWithCommas(stats.clean.reps)}</span>
-                                </div>
-                              </div>
-                              <div className="space-y-2">
-                                <h4 className="font-semibold">Jerk</h4>
-                                <div className="flex justify-between items-center">
-                                  <span className="text-sm font-medium text-gray-500">Tonnage</span>
-                                  <span className="text-lg font-bold text-blue-600">{formatNumberWithCommas(Math.round(stats.jerk.tonnage))} kg</span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                  <span className="text-sm font-medium text-gray-500">Reps</span>
-                                  <span className="text-lg font-bold text-green-600">{formatNumberWithCommas(stats.jerk.reps)}</span>
-                                </div>
-                              </div>
-                              <div className="space-y-2 pt-2 border-t">
-                                <h4 className="font-semibold">Total</h4>
-                                <div className="flex justify-between items-center">
-                                  <span className="text-sm font-medium text-gray-500">Tonnage</span>
-                                  <span className="text-lg font-bold text-blue-600">
-                                    {formatNumberWithCommas(Math.round(stats.clean.tonnage + stats.jerk.tonnage))} kg
-                                  </span>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                  <span className="text-sm font-medium text-gray-500">Reps</span>
-                                  <span className="text-lg font-bold text-green-600">
-                                    {formatNumberWithCommas(stats.clean.reps + stats.jerk.reps)}
-                                  </span>
-                                </div>
-                              </div>
-                              <div className="flex justify-between items-center pt-2 border-t">
-                                <span className="text-sm font-medium text-gray-500">Avg Intensity</span>
-                                <span className="text-lg font-bold text-purple-600">
-                                  {formatNumberWithCommas(Math.round((stats.clean.tonnage + stats.jerk.tonnage) / (stats.clean.reps + stats.jerk.reps)))} kg
-                                </span>
-                              </div>
+                          <div className="space-y-2">
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-medium text-gray-500">Tonnage</span>
+                              <span className="text-lg font-bold text-blue-600">{formatNumberWithCommas(Math.round(stats.tonnage))} kg</span>
                             </div>
-                          ) : (
-                            <div className="space-y-2">
-                              <div className="flex justify-between items-center">
-                                <span className="text-sm font-medium text-gray-500">Tonnage</span>
-                                <span className="text-lg font-bold text-blue-600">{formatNumberWithCommas(Math.round(stats.tonnage))} kg</span>
-                              </div>
-                              <div className="flex justify-between items-center">
-                                <span className="text-sm font-medium text-gray-500">Reps</span>
-                                <span className="text-lg font-bold text-green-600">{formatNumberWithCommas(stats.reps)}</span>
-                              </div>
-                              <div className="flex justify-between items-center">
-                                <span className="text-sm font-medium text-gray-500">Avg Intensity</span>
-                                <span className="text-lg font-bold text-purple-600">{formatNumberWithCommas(Math.round(stats.averageAbsoluteIntensity))} kg</span>
-                              </div>
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-medium text-gray-500">Reps</span>
+                              <span className="text-lg font-bold text-green-600">{formatNumberWithCommas(stats.reps)}</span>
                             </div>
-                          )}
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-medium text-gray-500">Avg Intensity</span>
+                              <span className="text-lg font-bold text-purple-600">{formatNumberWithCommas(Math.round(stats.averageAbsoluteIntensity))} kg</span>
+                            </div>
+                          </div>
                         </CardContent>
                       </Card>
                     ))}
                   </div>
                 </CardContent>
               </Card>
-              {analyzedData.averageMacros && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Average Macros (over {analyzedData.totalDays} days)</CardTitle>
-                  </CardHeader>
-                  <CardContent className="grid gap-4 md:grid-cols-3">
-                    <div className="bg-red-50 p-4 rounded-lg">
-                      <p className="text-sm font-semibold text-red-700">Protein</p>
-                      <p className="text-2xl font-bold">{formatNumberWithCommas(Math.round(analyzedData.averageMacros.protein))} g</p>
-                    </div>
-                    <div className="bg-yellow-50 p-4 rounded-lg">
-                      <p className="text-sm font-semibold text-yellow-700">Carbs</p>
-                      <p className="text-2xl font-bold">{formatNumberWithCommas(Math.round(analyzedData.averageMacros.carbs))} g</p>
-                    </div>
-                    <div className="bg-orange-50 p-4 rounded-lg">
-                      <p className="text-sm font-semibold text-orange-700">Fat</p>
-                      <p className="text-2xl font-bold">{formatNumberWithCommas(Math.round(analyzedData.averageMacros.fat))} g</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
             </div>
           )}
         </div>

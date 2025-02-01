@@ -27,7 +27,7 @@ router.get('/', async (req, res) => {
 
     const workoutsQuery = `
       WITH complex_exercise_sets AS (
-        SELECT 
+        SELECT
           we.id as exercise_id,
           json_agg(
             json_build_object(
@@ -69,7 +69,6 @@ router.get('/', async (req, res) => {
           ) as complexParts
         FROM workout_exercises we
         LEFT JOIN workout_exercise_sets wes ON we.id = wes.workout_exercise_id
-        LEFT JOIN workout_exercise_part wep ON wes.id = wep.workout_exercise_set_id
         WHERE we.is_complex = true
         GROUP BY we.id
       ),
@@ -124,7 +123,7 @@ router.get('/', async (req, res) => {
     console.log('Executing query with params:', { userId, startDate, endDate });
 
     const result = await pool.query(workoutsQuery, [userId, startDate, endDate]);
-    console.log('Query result:', result.rows);
+    console.log('Query result:', JSON.stringify(result.rows));
 
     res.json(result.rows);
   } catch (error) {

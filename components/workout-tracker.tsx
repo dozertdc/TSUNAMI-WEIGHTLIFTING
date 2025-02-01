@@ -241,13 +241,16 @@ const WorkoutTracker: React.FC = () => {
     fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
     
     let chronicTonnage = 0;
+    let daysWithWorkouts = 0;
+
     for (let i = 0; i < 28; i++) {
       const date = new Date(fourWeeksAgo);
       date.setDate(date.getDate() + i);
       const dateKey = date.toISOString().split('T')[0];
       const dayData = workouts[dateKey];
 
-      if (dayData?.exercises) {
+      if (dayData?.exercises && dayData.exercises.length > 0) {
+        daysWithWorkouts++;
         dayData.exercises.forEach(exercise => {
           exercise.sets.forEach(set => {
             const reps = exercise.isComplex
@@ -262,7 +265,12 @@ const WorkoutTracker: React.FC = () => {
       }
     }
 
-    const chronicAverage = chronicTonnage / 4; // 28-day tonnage divided by 4
+    // Only calculate ACWR if we have enough data
+    if (daysWithWorkouts < 7) {
+      return 0; // Return 0 or null to indicate insufficient data
+    }
+
+    const chronicAverage = chronicTonnage / 4; // 28-day tonnage divided by 4 weeks
     return chronicAverage > 0 ? acute / chronicAverage : 0;
   }, [currentDate, workouts, weeklyStats.tonnage]);
 
@@ -309,6 +317,19 @@ const WorkoutTracker: React.FC = () => {
       avgIntensity
     };
   }, [currentDate, workouts]);
+
+  const getAvailableExercises = (date: Date | null, exercises: string[]): string[] => {
+    if (!date) return exercises;
+    
+    // Get the date key in the format you're using
+    const dateKey = date.toISOString().split('T')[0];
+    
+    // Get existing exercises for this date
+    const existingExercises = workouts[dateKey]?.exercises?.map(e => e.name) || [];
+    
+    // Filter out exercises that are already used on this date
+    return exercises.filter(exercise => !existingExercises.includes(exercise));
+  };
 
   return (
     <div>
@@ -763,6 +784,8 @@ const WorkoutTracker: React.FC = () => {
               setWorkouts={setWorkouts}
               exerciseList={exerciseList}
               removeSet={removeSet}
+              selectedDate={selectedDate}
+              getAvailableExercises={getAvailableExercises}
             />
           </div>
         </div>

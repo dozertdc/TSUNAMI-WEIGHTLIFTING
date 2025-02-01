@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { X, Plus, Trash } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,8 @@ interface ExerciseModalProps {
   setWorkouts: React.Dispatch<React.SetStateAction<Workouts>>;
   exerciseList: { id: string; name: string }[];
   removeSet: (index: number) => void;
+  selectedDate: Date | null;
+  getAvailableExercises: (date: Date | null, exercises: string[]) => string[];
 }
 
 export const ExerciseModal: React.FC<ExerciseModalProps> = ({
@@ -32,12 +34,19 @@ export const ExerciseModal: React.FC<ExerciseModalProps> = ({
   setWorkouts,
   exerciseList,
   removeSet,
+  selectedDate,
+  getAvailableExercises,
 }) => {
   const [isComplex, setIsComplex] = useState(exercise.isComplex || false);
   const [complexParts, setComplexParts] = useState<ComplexPart[]>(
     exercise.complexParts || [{ name: '' }]
   );
   const [currentExercise, setCurrentExercise] = useState<Exercise>(exercise);
+
+  const availableExercises = useMemo(() => {
+    const exerciseNames = exerciseList.map(ex => ex.name);
+    return getAvailableExercises(selectedDate, exerciseNames);
+  }, [selectedDate, exerciseList, getAvailableExercises]);
 
   useEffect(() => {
     setIsComplex(exercise.isComplex || false);
@@ -183,32 +192,40 @@ export const ExerciseModal: React.FC<ExerciseModalProps> = ({
               <Label>Exercise Name</Label>
               <div className="flex items-center gap-2">
                 <div className="flex-1">
-                  <Select
-                    value={currentExercise.name}
-                    onValueChange={handleExerciseSelect}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select an exercise" />
-                    </SelectTrigger>
-                    <SelectContent className="z-[200]">
-                      {exerciseList.map((ex) => (
-                        <SelectItem key={ex.id} value={ex.name}>
-                          {ex.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {isEditing ? (
+                    <div className="p-2 bg-gray-100 rounded-md">
+                      {currentExercise.name}
+                    </div>
+                  ) : (
+                    <Select
+                      value={currentExercise.name}
+                      onValueChange={handleExerciseSelect}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select an exercise" />
+                      </SelectTrigger>
+                      <SelectContent className="z-[200]">
+                        {availableExercises.map((name) => (
+                          <SelectItem key={name} value={name}>
+                            {name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleToggleComplex}
-                  className="flex-shrink-0"
-                  title="Make Complex Exercise"
-                >
-                  <Plus className="h-4 w-4" />
-                </Button>
+                {!isEditing && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleToggleComplex}
+                    className="flex-shrink-0"
+                    title="Make Complex Exercise"
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
             </div>
           )}
@@ -239,9 +256,9 @@ export const ExerciseModal: React.FC<ExerciseModalProps> = ({
                         <SelectValue placeholder="Select exercise" />
                       </SelectTrigger>
                       <SelectContent>
-                        {exerciseList.map((ex) => (
-                          <SelectItem key={ex.id} value={ex.name}>
-                            {ex.name}
+                        {availableExercises.map((name) => (
+                          <SelectItem key={name} value={name}>
+                            {name}
                           </SelectItem>
                         ))}
                       </SelectContent>
