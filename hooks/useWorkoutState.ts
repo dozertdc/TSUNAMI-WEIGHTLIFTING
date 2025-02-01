@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Exercise, Workouts, Set, MacroData, Maximums } from '../types/workout';
-import { generateTestData, getExercises, getWorkouts, getMaximums } from '../utils/testData';
-import { useRouter } from 'next/navigation'
+import { Exercise, Workouts, Set} from '../types/workout';
 
 export const useWorkoutState = () => {
   const [workouts, setWorkouts] = useState<Workouts>({});
@@ -15,31 +13,7 @@ export const useWorkoutState = () => {
     name: '',
     sets: [],
   });
-  const [showDayDetailView, setShowDayDetailView] = useState(false);
-  const [isReordering, setIsReordering] = useState(false);
-  const [exerciseList, setExerciseList] = useState<{ id: string; name: string }[]>(() => {
-    const savedExerciseList = localStorage.getItem('exerciseList');
-    if (savedExerciseList) {
-      return JSON.parse(savedExerciseList);
-    }
-    return getExercises();
-  });
-  const [maximums, setMaximums] = useState<Maximums>(() => {
-    const savedMaximums = localStorage.getItem('maximums');
-    if (savedMaximums) {
-      return JSON.parse(savedMaximums);
-    }
-    return getMaximums();
-  });
   const [selectedUserId, setSelectedUserId] = useState<string>('');
-
-  useEffect(() => {
-    localStorage.setItem('exerciseList', JSON.stringify(exerciseList));
-  }, [exerciseList]);
-
-  useEffect(() => {
-    localStorage.setItem('maximums', JSON.stringify(maximums));
-  }, [maximums]);
 
   useEffect(() => {
     const user = localStorage.getItem('user');
@@ -108,17 +82,6 @@ export const useWorkoutState = () => {
     }
   };
 
-  const saveWorkout = async (workout) => {
-    const response = await fetch(`${API_URL}/workouts`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(workout),
-    });
-    return response.json();
-  };
-
   const startEditingExercise = (exercise: Exercise, date: Date) => {
     // Create a deep copy of the exercise to avoid reference issues
     const exerciseCopy = {
@@ -142,76 +105,6 @@ export const useWorkoutState = () => {
     setShowExerciseModal(true);
   };
 
-  const saveExercise = async () => {
-    if (!selectedDate) return;
-
-    try {
-      const dateKey = selectedDate.toISOString().split('T')[0];
-      const currentExercises = workouts[dateKey]?.exercises || [];
-      
-      if (editingExercise) {
-        // Update existing exercise
-        const updatedExercises = currentExercises.map(ex => 
-          ex.id === editingExercise.id ? editingExercise : ex
-        );
-        await saveWorkoutToDb(selectedDate, updatedExercises);
-      } else if (newExercise.name) {
-        // Add new exercise with a temporary ID
-        const updatedExercises = [...currentExercises, {
-          ...newExercise,
-          id: crypto.randomUUID(), // This ID will be replaced by the server
-          sets: newExercise.sets.map(set => ({
-            ...set,
-            id: crypto.randomUUID() // Temporary ID for sets
-          }))
-        }];
-        await saveWorkoutToDb(selectedDate, updatedExercises);
-      }
-    } catch (error) {
-      console.error('Failed to save exercise:', error);
-      // You might want to show a toast or error message to the user here
-    }
-  };
-
-  const openDayDetailView = (date: Date) => {
-    setSelectedDate(date);
-    setShowDayDetailView(true);
-  };
-
-  const closeDayDetailView = () => {
-    setShowDayDetailView(false);
-    setSelectedDate(null);
-  };
-
-  const toggleReordering = () => {
-    setIsReordering((prev) => !prev);
-  };
-
-  const reorderExercises = (date: Date, startIndex: number, endIndex: number) => {
-    const dateKey = date.toISOString().split('T')[0];
-    setWorkouts((prev) => {
-      const updatedWorkouts = { ...prev };
-      if (!updatedWorkouts[dateKey] || !updatedWorkouts[dateKey].exercises) {
-        return updatedWorkouts;
-      }
-      const [reorderedItem] = updatedWorkouts[dateKey].exercises.splice(startIndex, 1);
-      updatedWorkouts[dateKey].exercises.splice(endIndex, 0, reorderedItem);
-      return updatedWorkouts;
-    });
-  };
-
-  const saveMacros = (date: Date, macros: MacroData) => {
-    const dateKey = date.toISOString().split('T')[0];
-    setWorkouts(prev => ({
-      ...prev,
-      [dateKey]: {
-        ...prev[dateKey],
-        exercises: prev[dateKey]?.exercises || [],
-        macros,
-      },
-    }));
-  };
-
   const updateExercisesForDate = (date: Date, updatedExercises: Exercise[]) => {
     const dateKey = date.toISOString().split('T')[0];
     setWorkouts(prev => ({
@@ -221,14 +114,6 @@ export const useWorkoutState = () => {
         exercises: updatedExercises,
       },
     }));
-  };
-
-  const addExerciseToList = (exercise: Exercise) => {
-    setExerciseList(prev => [...prev, exercise]);
-  };
-
-  const removeExerciseFromList = (id: string) => {
-    setExerciseList(prev => prev.filter(exercise => exercise.id !== id));
   };
 
   const deleteExercise = async (date: Date, exerciseId: string) => {
@@ -285,27 +170,6 @@ export const useWorkoutState = () => {
     } catch (error) {
       console.error('Failed to delete exercise:', error);
       throw error;
-    }
-  };
-
-  const logout = () => {
-    console.log('Logging out');
-    if (typeof window !== 'undefined') {
-      // Clear localStorage
-      localStorage.clear();
-      
-      // Clear cookies more reliably
-      const cookies = document.cookie.split(';');
-      for (const cookie of cookies) {
-        const [name] = cookie.split('=');
-        document.cookie = `${name.trim()}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; domain=${window.location.hostname}`;
-        // Also try without domain for cookies set without it
-        document.cookie = `${name.trim()}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
-      }
-  
-      // Clear session storage
-      sessionStorage.clear();
-      window.location.href = '/login';
     }
   };
 
@@ -510,9 +374,6 @@ export const useWorkoutState = () => {
           })) : []
         };
       });
-
-      console.log('Raw workout data:', workoutData);
-      console.log('Formatted workouts:', formattedWorkouts);
       setWorkouts(formattedWorkouts);
     } catch (error) {
       console.error('Error fetching workouts:', error instanceof Error ? error.message : 'Unknown error');
@@ -636,8 +497,6 @@ export const useWorkoutState = () => {
     selectedDate,
     editingExercise,
     newExercise,
-    showDayDetailView,
-    isReordering,
     selectedUserId,
     setSelectedUserId: handleUserChange,
     setCurrentDate,
@@ -647,23 +506,10 @@ export const useWorkoutState = () => {
     setEditingExercise,
     addSet,
     updateSet,
-    saveExercise,
     startEditingExercise,
-    openDayDetailView,
-    closeDayDetailView,
-    toggleReordering,
-    reorderExercises,
-    setShowDayDetailView,
-    saveMacros,
     updateExercisesForDate,
     setWorkouts,
-    exerciseList,
-    addExerciseToList,
-    removeExerciseFromList,
-    maximums,
-    setMaximums,
     deleteExercise,
-    logout,
     removeSet,
   };
 };
