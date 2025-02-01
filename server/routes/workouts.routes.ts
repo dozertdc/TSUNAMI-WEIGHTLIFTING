@@ -31,14 +31,45 @@ router.get('/', async (req, res) => {
           we.id as exercise_id,
           json_agg(
             json_build_object(
-              'id', wep.id,
-              'weight', wep.weight,
-              'reps', wep.reps,
-              'setOrder', wep.set_order
-            ) ORDER BY wep.set_order
-          ) as sets
+              'id', wes.id,
+              'weight', wes.weight,
+              'reps', (
+                SELECT SUM(wep.reps)
+                FROM workout_exercise_part wep
+                WHERE wep.workout_exercise_set_id = wes.id
+              ),
+              'setOrder', wes.set_order,
+              'parts', (
+                SELECT json_agg(
+                  json_build_object(
+                    'id', wep.id,
+                    'name', wep.name,
+                    'reps', wep.reps,
+                    'orderIndex', wep.order_index
+                  ) ORDER BY wep.order_index
+                )
+                FROM workout_exercise_part wep
+                WHERE wep.workout_exercise_set_id = wes.id
+              )
+            ) ORDER BY wes.set_order
+          ) as sets,
+          (
+            SELECT json_agg(
+              json_build_object(
+                'name', name,
+                'orderIndex', order_index
+              )
+            )
+            FROM (
+              SELECT DISTINCT name, order_index
+              FROM workout_exercise_part wep
+              WHERE wep.workout_exercise_id = we.id
+              ORDER BY order_index
+            ) distinct_parts
+          ) as complexParts
         FROM workout_exercises we
-        LEFT JOIN workout_exercise_part wep ON we.id = wep.workout_exercise_id
+        LEFT JOIN workout_exercise_sets wes ON we.id = wes.workout_exercise_id
+        LEFT JOIN workout_exercise_part wep ON wes.id = wep.workout_exercise_set_id
         WHERE we.is_complex = true
         GROUP BY we.id
       ),
@@ -68,6 +99,10 @@ router.get('/', async (req, res) => {
               'id', we.id,
               'name', we.name,
               'isComplex', we.is_complex,
+              'complexParts', CASE 
+                WHEN we.is_complex THEN ces.complexParts
+                ELSE NULL
+              END,
               'sets', CASE 
                 WHEN we.is_complex THEN COALESCE(ces.sets, '[]'::json)
                 ELSE COALESCE(res.sets, '[]'::json)
@@ -147,12 +182,37 @@ router.post('/', async (req, res) => {
 
       for (const [setIndex, set] of exercise.sets.entries()) {
         if (exercise.isComplex) {
-          // Handle complex exercise sets
-          await pool.query(
-            `INSERT INTO workout_exercise_part (id, workout_exercise_id, weight, reps, set_order) 
-             VALUES (gen_random_uuid(), $1, $2, $3, $4)`,
+          // For complex exercises, first create a main set record
+          const setResult = await pool.query(
+            `INSERT INTO workout_exercise_sets (id, workout_exercise_id, weight, reps, set_order) 
+             VALUES (gen_random_uuid(), $1, $2, $3, $4) 
+             RETURNING id`,
             [exerciseId, set.weight || 0, set.reps || 0, setIndex]
-          );
+          );  
+          const setId = setResult.rows[0].id;
+
+          // Then create part records for each component of the complex exercise
+          if (exercise.complexParts) {
+            for (const [partIndex, part] of exercise.complexParts.entries()) {
+              await pool.query(
+                `INSERT INTO workout_exercise_part (
+                  id, 
+                  workout_exercise_id, 
+                  workout_exercise_set_id,
+                  name,
+                  reps, 
+                  order_index
+                ) VALUES (gen_random_uuid(), $1, $2, $3, $4, $5)`,
+                [
+                  exerciseId,
+                  setId,
+                  part.name,
+                  set[`exercise${partIndex}Reps`] || 0,
+                  partIndex
+                ]
+              );
+            }
+          }
         } else {
           // Handle regular exercise sets
           await pool.query(
@@ -280,12 +340,40 @@ router.put('/:workoutId', async (req, res) => {
         // Insert updated sets
         for (const [setIndex, set] of exercise.sets.entries()) {
           if (exercise.isComplex) {
-            await pool.query(
-              `INSERT INTO workout_exercise_part (id, workout_exercise_id, weight, reps, set_order) 
-               VALUES (gen_random_uuid(), $1, $2, $3, $4)`,
+            // First create the main set record
+            console.log('Creating main set record:', { exerciseId, set });
+            const setResult = await pool.query(
+              `INSERT INTO workout_exercise_sets (id, workout_exercise_id, weight, reps, set_order) 
+               VALUES (gen_random_uuid(), $1, $2, $3, $4) 
+               RETURNING id`,
               [exerciseId, set.weight || 0, set.reps || 0, setIndex]
             );
+            const setId = setResult.rows[0].id;
+
+            // Then create the part records
+            if (exercise.complexParts) {
+              for (const [partIndex, part] of exercise.complexParts.entries()) {
+                await pool.query(
+                  `INSERT INTO workout_exercise_part (
+                    id, 
+                    workout_exercise_id, 
+                    workout_exercise_set_id,
+                    name,
+                    reps, 
+                    order_index
+                  ) VALUES (gen_random_uuid(), $1, $2, $3, $4, $5)`,
+                  [
+                    exerciseId,
+                    setId,
+                    part.name,
+                    set[`exercise${partIndex}Reps`] || 0,
+                    partIndex
+                  ]
+                );
+              }
+            }
           } else {
+            // Handle regular exercise sets
             await pool.query(
               `INSERT INTO workout_exercise_sets (id, workout_exercise_id, weight, reps, set_order) 
                VALUES (gen_random_uuid(), $1, $2, $3, $4)`,
@@ -457,13 +545,19 @@ router.delete('/:workoutId/exercises/:exerciseId/sets/:setId', async (req, res) 
 
     const isComplex = exerciseResult.rows[0].is_complex;
 
-    // Delete from the appropriate table based on exercise type
     if (isComplex) {
+      // For complex exercises, first delete the parts
       await pool.query(
-        'DELETE FROM workout_exercise_part WHERE id = $1 AND workout_exercise_id = $2',
+        'DELETE FROM workout_exercise_part WHERE workout_exercise_set_id = $1',
+        [setId]
+      );
+      // Then delete the set
+      await pool.query(
+        'DELETE FROM workout_exercise_sets WHERE id = $1 AND workout_exercise_id = $2',
         [setId, exerciseId]
       );
     } else {
+      // For regular exercises, just delete the set
       await pool.query(
         'DELETE FROM workout_exercise_sets WHERE id = $1 AND workout_exercise_id = $2',
         [setId, exerciseId]

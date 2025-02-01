@@ -4,13 +4,7 @@ import { generateTestData, getExercises, getWorkouts, getMaximums } from '../uti
 import { useRouter } from 'next/navigation'
 
 export const useWorkoutState = () => {
-  const getInitialWorkouts = () => {
-    if (typeof window === 'undefined') return getWorkouts();
-    const savedWorkouts = localStorage.getItem('workouts');
-    return savedWorkouts ? JSON.parse(savedWorkouts) : getWorkouts();
-  };
-
-  const [workouts, setWorkouts] = useState<Workouts>(getInitialWorkouts);
+  const [workouts, setWorkouts] = useState<Workouts>({});
 
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showExerciseModal, setShowExerciseModal] = useState(false);
@@ -38,10 +32,6 @@ export const useWorkoutState = () => {
     return getMaximums();
   });
   const [selectedUserId, setSelectedUserId] = useState<string>('');
-
-  useEffect(() => {
-    localStorage.setItem('workouts', JSON.stringify(workouts));
-  }, [workouts]);
 
   useEffect(() => {
     localStorage.setItem('exerciseList', JSON.stringify(exerciseList));
@@ -407,6 +397,7 @@ export const useWorkoutState = () => {
   };
 
   const fetchWorkouts = async (userId: string, date: Date) => {
+    console.log('fetchWorkouts called with:', { userId, date });
     if (!userId) {
       console.error('No userId provided to fetchWorkouts');
       return;
@@ -415,6 +406,12 @@ export const useWorkoutState = () => {
     try {
       const startDate = new Date(date.getFullYear(), date.getMonth(), 1);
       const endDate = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+
+      console.log('Fetching workouts with params:', {
+        userId,
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString()
+      });
 
       // Get user from localStorage to check authentication
       const userStr = localStorage.getItem('user');
@@ -452,7 +449,6 @@ export const useWorkoutState = () => {
       // Transform the data to match your state structure
       const formattedWorkouts: Workouts = {};
       workoutData.forEach((workout: any) => {
-        // Format the date key consistently
         const dateKey = new Date(workout.date).toISOString().split('T')[0];
         
         formattedWorkouts[dateKey] = {
@@ -461,17 +457,33 @@ export const useWorkoutState = () => {
             id: exercise.id,
             name: exercise.name,
             isComplex: exercise.isComplex,
-            sets: Array.isArray(exercise.sets) ? exercise.sets.map((set: any) => ({
-              id: set.id,
-              weight: set.weight || 0,
-              reps: set.reps || 0,
-              ...(exercise.isComplex ? 
-                exercise.complexParts?.reduce((acc: any, _: any, index: number) => ({
+            complexParts: exercise.complexParts,
+            sets: Array.isArray(exercise.sets) ? exercise.sets.map((set: any) => {
+              if (exercise.isComplex && set.parts) {
+                // Calculate total reps from parts for complex exercises
+                const totalReps = set.parts.reduce((sum: number, part: any) => sum + (part.reps || 0), 0);
+                
+                // Create exercise0Reps, exercise1Reps etc. from parts
+                const partReps = set.parts.reduce((acc: any, part: any, index: number) => ({
                   ...acc,
-                  [`exercise${index}Reps`]: set[`exercise${index}Reps`] || set.reps || 0
-                }), {}) 
-                : {})
-            })) : []
+                  [`exercise${index}Reps`]: part.reps || 0
+                }), {});
+
+                return {
+                  id: set.id,
+                  weight: set.weight || 0,
+                  reps: totalReps, // Use total reps for tonnage calculation
+                  ...partReps     // Include individual part reps
+                };
+              } else {
+                // Regular exercise set
+                return {
+                  id: set.id,
+                  weight: set.weight || 0,
+                  reps: set.reps || 0
+                };
+              }
+            }) : []
           })) : []
         };
       });
@@ -487,14 +499,12 @@ export const useWorkoutState = () => {
     }
   };
 
-  // Remove the useEffect for selectedUserId changes since we'll handle it in handleUserChange
   useEffect(() => {
     if (selectedUserId) {
       fetchWorkouts(selectedUserId, currentDate);
     }
-  }, [currentDate]); // Only react to currentDate changes
+  }, [currentDate, selectedUserId]);
 
-  // Update handleUserChange to fetch workouts for selected user
   const handleUserChange = async (userId: string) => {
     try {
       // First clear the workouts
@@ -527,6 +537,8 @@ export const useWorkoutState = () => {
         }
 
         const workoutData = await response.json();
+
+        console.log('Raw workout data:', workoutData);
         const formattedWorkouts: Workouts = {};
         
         workoutData.forEach((workout: any) => {
@@ -537,17 +549,33 @@ export const useWorkoutState = () => {
               id: exercise.id,
               name: exercise.name,
               isComplex: exercise.isComplex,
-              sets: Array.isArray(exercise.sets) ? exercise.sets.map((set: any) => ({
-                id: set.id,
-                weight: set.weight || 0,
-                reps: set.reps || 0,
-                ...(exercise.isComplex ? 
-                  exercise.complexParts?.reduce((acc: any, _: any, index: number) => ({
+              complexParts: exercise.complexParts,
+              sets: Array.isArray(exercise.sets) ? exercise.sets.map((set: any) => {
+                if (exercise.isComplex && set.parts) {
+                  // Calculate total reps from parts for complex exercises
+                  const totalReps = set.parts.reduce((sum: number, part: any) => sum + (part.reps || 0), 0);
+                  
+                  // Create exercise0Reps, exercise1Reps etc. from parts
+                  const partReps = set.parts.reduce((acc: any, part: any, index: number) => ({
                     ...acc,
-                    [`exercise${index}Reps`]: set[`exercise${index}Reps`] || set.reps || 0
-                  }), {}) 
-                  : {})
-              })) : []
+                    [`exercise${index}Reps`]: part.reps || 0
+                  }), {});
+
+                  return {
+                    id: set.id,
+                    weight: set.weight || 0,
+                    reps: totalReps, // Use total reps for tonnage calculation
+                    ...partReps     // Include individual part reps
+                  };
+                } else {
+                  // Regular exercise set
+                  return {
+                    id: set.id,
+                    weight: set.weight || 0,
+                    reps: set.reps || 0
+                  };
+                }
+              }) : []
             })) : []
           };
         });
