@@ -346,9 +346,6 @@ export const useWorkoutState = () => {
         }))
       };
 
-      console.log('Saving workout with data:', JSON.stringify(workoutData));
-
-      // If we have an existing workout for this date, use PUT, otherwise POST
       const method = existingWorkout ? 'PUT' : 'POST';
       const url = existingWorkout 
         ? `http://localhost:3001/api/workouts/${existingWorkout.id}`
@@ -364,34 +361,58 @@ export const useWorkoutState = () => {
         body: JSON.stringify(workoutData)
       });
 
-      console.log('Req:', JSON.stringify(workoutData));
-
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Server response:', errorText);
-        try {
-          const errorData = JSON.parse(errorText);
-          throw new Error(errorData.error || 'Failed to save workout');
-        } catch (e) {
-          throw new Error(`Server error: ${errorText.slice(0, 100)}`);
-        }
+        throw new Error(`Failed to save workout: ${errorText}`);
       }
 
       const result = await response.json();
-      console.log('Workout saved successfully:', result);
 
-      // Update local state with the server response
+      // Format the response data to match state structure
       if (result.workout) {
+        const formattedWorkout = {
+          id: result.workout.id,
+          exercises: Array.isArray(result.workout.exercises) ? result.workout.exercises.map((exercise: any) => ({
+            id: exercise.id,
+            name: exercise.name,
+            isComplex: exercise.isComplex,
+            complexParts: exercise.complexParts,
+            sets: Array.isArray(exercise.sets) ? exercise.sets.map((set: any) => {
+              if (exercise.isComplex && set.parts) {
+                // Calculate total reps from parts for complex exercises
+                const totalReps = set.parts.reduce((sum: number, part: any) => sum + (part.reps || 0), 0);
+                
+                // Create exercise0Reps, exercise1Reps etc. from parts
+                const partReps = set.parts.reduce((acc: any, part: any, index: number) => ({
+                  ...acc,
+                  [`exercise${index}Reps`]: part.reps || 0
+                }), {});
+
+                return {
+                  id: set.id,
+                  weight: set.weight || 0,
+                  reps: totalReps, // Use total reps for tonnage calculation
+                  ...partReps     // Include individual part reps
+                };
+              } else {
+                // Regular exercise set
+                return {
+                  id: set.id,
+                  weight: set.weight || 0,
+                  reps: set.reps || 0
+                };
+              }
+            }) : []
+          })) : []
+        };
+
         setWorkouts(prev => ({
           ...prev,
-          [dateKey]: result.workout
+          [dateKey]: formattedWorkout
         }));
       }
 
-      // Clear modal state after successful save
-      setEditingExercise(null);
-      setNewExercise({ id: '', name: '', sets: [] });
-      setShowExerciseModal(false);
+      return result;
     } catch (error) {
       console.error('Error saving workout:', error);
       throw error;

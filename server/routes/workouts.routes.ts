@@ -123,7 +123,6 @@ router.get('/', async (req, res) => {
     console.log('Executing query with params:', { userId, startDate, endDate });
 
     const result = await pool.query(workoutsQuery, [userId, startDate, endDate]);
-    console.log('Query result:', JSON.stringify(result.rows));
 
     res.json(result.rows);
   } catch (error) {
@@ -146,8 +145,6 @@ router.post('/', async (req, res) => {
         details: `Required: userId, date, exercises. Received: ${JSON.stringify({ userId, date, exercises: !!exercises })}`
       });
     }
-
-    console.log('Received workout data:', { userId, date, exercises });
 
     await pool.query('BEGIN');
 
@@ -226,7 +223,52 @@ router.post('/', async (req, res) => {
     await pool.query('COMMIT');
 
     const savedWorkout = await pool.query(`
-      WITH exercise_sets AS (
+      WITH complex_exercise_sets AS (
+        SELECT 
+          we.id as exercise_id,
+          json_agg(
+            json_build_object(
+              'id', wes.id,
+              'weight', wes.weight,
+              'reps', (
+                SELECT SUM(wep.reps)
+                FROM workout_exercise_part wep
+                WHERE wep.workout_exercise_set_id = wes.id
+              ),
+              'setOrder', wes.set_order,
+              'parts', (
+                SELECT json_agg(
+                  json_build_object(
+                    'id', wep.id,
+                    'name', wep.name,
+                    'reps', wep.reps,
+                    'orderIndex', wep.order_index
+                  ) ORDER BY wep.order_index
+                )
+                FROM workout_exercise_part wep
+                WHERE wep.workout_exercise_set_id = wes.id
+              )
+            ) ORDER BY wes.set_order
+          ) as sets,
+          (
+            SELECT json_agg(
+              json_build_object(
+                'name', name,
+                'orderIndex', order_index
+              ) ORDER BY order_index
+            )
+            FROM (
+              SELECT DISTINCT name, order_index
+              FROM workout_exercise_part wep
+              WHERE wep.workout_exercise_id = we.id
+            ) distinct_parts
+          ) as complexParts
+        FROM workout_exercises we
+        LEFT JOIN workout_exercise_sets wes ON we.id = wes.workout_exercise_id
+        WHERE we.workout_id = $1 AND we.is_complex = true
+        GROUP BY we.id
+      ),
+      regular_exercise_sets AS (
         SELECT 
           we.id as exercise_id,
           json_agg(
@@ -239,7 +281,7 @@ router.post('/', async (req, res) => {
           ) as sets
         FROM workout_exercises we
         LEFT JOIN workout_exercise_sets wes ON we.id = wes.workout_exercise_id
-        WHERE we.workout_id = $1
+        WHERE we.workout_id = $1 AND we.is_complex = false
         GROUP BY we.id
       )
       SELECT 
@@ -251,16 +293,25 @@ router.post('/', async (req, res) => {
             'id', we.id,
             'name', we.name,
             'isComplex', we.is_complex,
-            'sets', COALESCE(es.sets, '[]'::json)
+            'complexParts', CASE 
+              WHEN we.is_complex THEN ces.complexParts
+              ELSE NULL
+            END,
+            'sets', CASE 
+              WHEN we.is_complex THEN COALESCE(ces.sets, '[]'::json)
+              ELSE COALESCE(res.sets, '[]'::json)
+            END
           ) ORDER BY we.order_index
         ) as exercises
       FROM workouts w
       LEFT JOIN workout_exercises we ON w.id = we.workout_id
-      LEFT JOIN exercise_sets es ON we.id = es.exercise_id
+      LEFT JOIN complex_exercise_sets ces ON we.id = ces.exercise_id
+      LEFT JOIN regular_exercise_sets res ON we.id = res.exercise_id
       WHERE w.id = $1
       GROUP BY w.id, w.date, w.status;
     `, [workoutId]);
 
+    console.log('savedWorkout', savedWorkout.rows[0]);
     res.json({ 
       workoutId,
       workout: savedWorkout.rows[0]
@@ -284,8 +335,6 @@ router.put('/:workoutId', async (req, res) => {
   const { status, exercises } = req.body;
 
   try {
-    console.log('Updating workout:', { workoutId, status, exercises });
-    
     await pool.query('BEGIN');
 
     // Update workout status if provided
@@ -340,7 +389,6 @@ router.put('/:workoutId', async (req, res) => {
         for (const [setIndex, set] of exercise.sets.entries()) {
           if (exercise.isComplex) {
             // First create the main set record
-            console.log('Creating main set record:', { exerciseId, set });
             const setResult = await pool.query(
               `INSERT INTO workout_exercise_sets (id, workout_exercise_id, weight, reps, set_order) 
                VALUES (gen_random_uuid(), $1, $2, $3, $4) 
@@ -394,7 +442,52 @@ router.put('/:workoutId', async (req, res) => {
     await pool.query('COMMIT');
 
     const savedWorkout = await pool.query(`
-      WITH exercise_sets AS (
+      WITH complex_exercise_sets AS (
+        SELECT 
+          we.id as exercise_id,
+          json_agg(
+            json_build_object(
+              'id', wes.id,
+              'weight', wes.weight,
+              'reps', (
+                SELECT SUM(wep.reps)
+                FROM workout_exercise_part wep
+                WHERE wep.workout_exercise_set_id = wes.id
+              ),
+              'setOrder', wes.set_order,
+              'parts', (
+                SELECT json_agg(
+                  json_build_object(
+                    'id', wep.id,
+                    'name', wep.name,
+                    'reps', wep.reps,
+                    'orderIndex', wep.order_index
+                  ) ORDER BY wep.order_index
+                )
+                FROM workout_exercise_part wep
+                WHERE wep.workout_exercise_set_id = wes.id
+              )
+            ) ORDER BY wes.set_order
+          ) as sets,
+          (
+            SELECT json_agg(
+              json_build_object(
+                'name', name,
+                'orderIndex', order_index
+              ) ORDER BY order_index
+            )
+            FROM (
+              SELECT DISTINCT name, order_index
+              FROM workout_exercise_part wep
+              WHERE wep.workout_exercise_id = we.id
+            ) distinct_parts
+          ) as complexParts
+        FROM workout_exercises we
+        LEFT JOIN workout_exercise_sets wes ON we.id = wes.workout_exercise_id
+        WHERE we.workout_id = $1 AND we.is_complex = true
+        GROUP BY we.id
+      ),
+      regular_exercise_sets AS (
         SELECT 
           we.id as exercise_id,
           json_agg(
@@ -407,7 +500,7 @@ router.put('/:workoutId', async (req, res) => {
           ) as sets
         FROM workout_exercises we
         LEFT JOIN workout_exercise_sets wes ON we.id = wes.workout_exercise_id
-        WHERE we.workout_id = $1
+        WHERE we.workout_id = $1 AND we.is_complex = false
         GROUP BY we.id
       )
       SELECT 
@@ -419,16 +512,25 @@ router.put('/:workoutId', async (req, res) => {
             'id', we.id,
             'name', we.name,
             'isComplex', we.is_complex,
-            'sets', COALESCE(es.sets, '[]'::json)
+            'complexParts', CASE 
+              WHEN we.is_complex THEN ces.complexParts
+              ELSE NULL
+            END,
+            'sets', CASE 
+              WHEN we.is_complex THEN COALESCE(ces.sets, '[]'::json)
+              ELSE COALESCE(res.sets, '[]'::json)
+            END
           ) ORDER BY we.order_index
         ) as exercises
       FROM workouts w
       LEFT JOIN workout_exercises we ON w.id = we.workout_id
-      LEFT JOIN exercise_sets es ON we.id = es.exercise_id
+      LEFT JOIN complex_exercise_sets ces ON we.id = ces.exercise_id
+      LEFT JOIN regular_exercise_sets res ON we.id = res.exercise_id
       WHERE w.id = $1
       GROUP BY w.id, w.date, w.status;
     `, [workoutId]);
 
+    console.log('savedWorkout', JSON.stringify(savedWorkout.rows[0]));
     res.json({ 
       workoutId,
       workout: savedWorkout.rows[0]
