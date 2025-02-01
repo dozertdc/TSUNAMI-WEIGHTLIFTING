@@ -309,13 +309,19 @@ export const useWorkoutState = () => {
     }
   };
 
+  const getLocalDateString = (date: Date) => {
+    return new Date(date.getTime() - (date.getTimezoneOffset() * 60000))
+      .toISOString()
+      .split('T')[0];
+  };
+
   const saveWorkoutToDb = async (date: Date, exercises: Exercise[]) => {
     try {
       if (!selectedUserId) {
         throw new Error('No user selected');
       }
 
-      const dateKey = date.toISOString().split('T')[0];
+      const dateKey = getLocalDateString(date);
       const existingWorkout = workouts[dateKey];
       
       const workoutData = {
@@ -387,11 +393,7 @@ export const useWorkoutState = () => {
       setNewExercise({ id: '', name: '', sets: [] });
       setShowExerciseModal(false);
     } catch (error) {
-      console.error('Error saving workout:', {
-        error,
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined
-      });
+      console.error('Error saving workout:', error);
       throw error;
     }
   };

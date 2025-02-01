@@ -371,20 +371,35 @@ export default function NutritionPage() {
     };
   };
 
+  // Add helper function
+  const getLocalDateString = (date: Date) => {
+    return new Date(date.getTime() - (date.getTimezoneOffset() * 60000))
+      .toISOString()
+      .split('T')[0];
+  };
+
+  // Add scroll to today functionality
   const scrollToToday = () => {
     const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr = getLocalDateString(today);
+    console.log('Today in local timezone:', todayStr);
     const element = document.getElementById(`day-${todayStr}`);
     if (element) {
       element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else {
+      console.log('Could not find element for today:', `day-${todayStr}`);
     }
   };
 
+  // Add useEffect for initial scroll
   useEffect(() => {
-    // Wait a bit for the DOM to be ready
-    const timer = setTimeout(scrollToToday, 100);
-    return () => clearTimeout(timer);
-  }, [nutritionData]);
+    if (workouts) {
+      const timer = setTimeout(() => {
+        scrollToToday();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [workouts]);
 
   return (
     <AuthCheck>
@@ -607,7 +622,7 @@ export default function NutritionPage() {
           <CardContent className="pt-0">
             <div className="space-y-4 mt-4">
               {getDaysInMonth(currentDate).map((day, index) => {
-                const dateKey = day.date.toISOString().split('T')[0];
+                const dateKey = getLocalDateString(day.date);
                 console.log('Rendering date:', dateKey, nutritionData[dateKey]);
                 
                 const dayData = nutritionData[dateKey] || {
@@ -634,7 +649,7 @@ export default function NutritionPage() {
                     className={`${
                       day.isCurrentMonth ? 'bg-white' : 'bg-gray-50'
                     } transition-all hover:shadow-md ${
-                      dateKey === new Date().toISOString().split('T')[0] ? 'border-2 border-primary' : ''
+                      dateKey === getLocalDateString(new Date()) ? 'border-2 border-primary' : ''
                     }`}
                   >
                     <CardHeader 

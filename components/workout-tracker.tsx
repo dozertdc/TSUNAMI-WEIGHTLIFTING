@@ -23,6 +23,12 @@ const commonSelectTriggerStyles = "bg-black text-white hover:bg-gray-800 hover:t
 const commonSelectContentStyles = "bg-black text-white border border-gray-700";
 const commonSelectItemStyles = "cursor-pointer font-bold hover:bg-gray-800 hover:text-white focus:bg-gray-800 focus:text-white";
 
+const getLocalDateString = (date: Date) => {
+  return new Date(date.getTime() - (date.getTimezoneOffset() * 60000))
+    .toISOString()
+    .split('T')[0];
+};
+
 const WorkoutTracker: React.FC = () => {
   const {
     workouts,
@@ -99,10 +105,13 @@ const WorkoutTracker: React.FC = () => {
   // Add scroll to today functionality
   const scrollToToday = () => {
     const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr = getLocalDateString(today);
+    console.log('Today in local timezone:', todayStr);
     const element = document.getElementById(`day-${todayStr}`);
     if (element) {
       element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else {
+      console.log('Could not find element for today:', `day-${todayStr}`);
     }
   };
 
@@ -478,7 +487,7 @@ const WorkoutTracker: React.FC = () => {
                     day.isCurrentMonth ? 'bg-white' : 'bg-gray-50'
                   } ${hasWorkout ? 'border-blue-500' : 'border-gray-200'} 
                     transition-all hover:shadow-md ${
-                    dateKey === new Date().toISOString().split('T')[0] ? 'border-2 border-primary' : ''
+                    dateKey === getLocalDateString(new Date()) ? 'border-2 border-primary' : ''
                   }`}
                 >
                   <CardHeader className="flex flex-row items-center justify-between py-4">
