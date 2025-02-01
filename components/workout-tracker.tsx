@@ -51,12 +51,13 @@ const WorkoutTracker: React.FC = () => {
     exerciseList,
     deleteExercise,
     removeSet,
+    selectedUserId,
+    setSelectedUserId,
   } = useWorkoutState();
 
   const [showMacroCalculator, setShowMacroCalculator] = useState(false);
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
   const [users, setUsers] = useState<Array<{ id: string; firstName: string; lastName: string }>>([]);
-  const [selectedUserId, setSelectedUserId] = useState<string>('');
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -180,9 +181,9 @@ const WorkoutTracker: React.FC = () => {
     return years;
   };
 
-  const handleUserChange = (userId: string) => {
+  const handleUserChangeFromDropdown = (userId: string) => {
+    console.log('handleUserChangeFromDropdown called with:', userId);
     setSelectedUserId(userId);
-    // Here you could fetch the selected user's workouts
   };
 
   // Add these calculations near your other useMemo hooks
@@ -318,7 +319,7 @@ const WorkoutTracker: React.FC = () => {
             <div className="flex items-center gap-4">
               <Select
                 value={selectedUserId}
-                onValueChange={handleUserChange}
+                onValueChange={handleUserChangeFromDropdown}
               >
                 <SelectTrigger className={`${commonSelectTriggerStyles} w-[200px]`}>
                   <SelectValue placeholder="Select User">

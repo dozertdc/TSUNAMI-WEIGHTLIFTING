@@ -508,87 +508,31 @@ export const useWorkoutState = () => {
   }, [currentDate, selectedUserId]);
 
   const handleUserChange = async (userId: string) => {
+    console.log('handleUserChange called with:', userId);
     try {
-      // First clear the workouts
+      // First clear all state
       setWorkouts({});
+      setEditingExercise(null);
+      setNewExercise({ id: '', name: '', sets: [] });
+      setShowExerciseModal(false);
+      setSelectedDate(null);
       
       // Then update the selectedUserId
       setSelectedUserId(userId);
 
-      // Fetch workouts for the selected user (not necessarily the logged-in user)
+      // Finally fetch workouts for the new user
       if (userId) {
-        const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-        const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
-
-        const response = await fetch(
-          `http://localhost:3001/api/workouts?` + 
-          `userId=${userId}&` +
-          `startDate=${startDate.toISOString().split('T')[0]}&` +
-          `endDate=${endDate.toISOString().split('T')[0]}`,
-          {
-            credentials: 'include',
-            headers: {
-              'Accept': 'application/json',
-              'Content-Type': 'application/json'
-            }
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch workouts for selected user');
-        }
-
-        const workoutData = await response.json();
-
-        console.log('Raw workout data:', workoutData);
-        const formattedWorkouts: Workouts = {};
-        
-        workoutData.forEach((workout: any) => {
-          const dateKey = new Date(workout.date).toISOString().split('T')[0];
-          formattedWorkouts[dateKey] = {
-            id: workout.id,
-            exercises: Array.isArray(workout.exercises) ? workout.exercises.map((exercise: any) => ({
-              id: exercise.id,
-              name: exercise.name,
-              isComplex: exercise.isComplex,
-              complexParts: exercise.complexParts,
-              sets: Array.isArray(exercise.sets) ? exercise.sets.map((set: any) => {
-                if (exercise.isComplex && set.parts) {
-                  // Calculate total reps from parts for complex exercises
-                  const totalReps = set.parts.reduce((sum: number, part: any) => sum + (part.reps || 0), 0);
-                  
-                  // Create exercise0Reps, exercise1Reps etc. from parts
-                  const partReps = set.parts.reduce((acc: any, part: any, index: number) => ({
-                    ...acc,
-                    [`exercise${index}Reps`]: part.reps || 0
-                  }), {});
-
-                  return {
-                    id: set.id,
-                    weight: set.weight || 0,
-                    reps: totalReps, // Use total reps for tonnage calculation
-                    ...partReps     // Include individual part reps
-                  };
-                } else {
-                  // Regular exercise set
-                  return {
-                    id: set.id,
-                    weight: set.weight || 0,
-                    reps: set.reps || 0
-                  };
-                }
-              }) : []
-            })) : []
-          };
-        });
-
-        setWorkouts(formattedWorkouts);
+        await fetchWorkouts(userId, currentDate);
       }
     } catch (error) {
       console.error('Error changing selected user:', error);
-      // Optionally reset the selected user if there was an error
-      setSelectedUserId('');
+      // Reset all state on error
       setWorkouts({});
+      setSelectedUserId('');
+      setEditingExercise(null);
+      setNewExercise({ id: '', name: '', sets: [] });
+      setShowExerciseModal(false);
+      setSelectedDate(null);
     }
   };
 
