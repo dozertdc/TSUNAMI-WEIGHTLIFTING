@@ -44,6 +44,8 @@ export const ExerciseModal: React.FC<ExerciseModalProps> = ({
   const [currentExercise, setCurrentExercise] = useState<Exercise>(exercise);
 
   const availableExercises = useMemo(() => {
+    if (!exerciseList) return [];
+    
     const exerciseNames = exerciseList.map(ex => ex.name);
     return getAvailableExercises(selectedDate, exerciseNames);
   }, [selectedDate, exerciseList, getAvailableExercises]);

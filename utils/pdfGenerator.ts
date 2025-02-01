@@ -33,12 +33,26 @@ export const generateWorkoutPDF = (workouts: Workouts, startDate: Date, endDate:
 
   let yPosition = 40; // Adjusted starting position to account for new header
   
+  // Initialize workout totals at the start
+  let workoutTotalSets = 0;
+  let workoutTotalWeight = 0;
+  let workoutTotalReps = 0;
+  let workoutTotalTonnage = 0;
+  let setCount = 0;
+
   // Iterate through each day in the date range
   for (let d = new Date(formattedStartDate); d <= formattedEndDate; d.setDate(d.getDate() + 1)) {
     const dateKey = d.toISOString().split('T')[0];
     const dayData = workouts[dateKey];
     
     if (dayData && dayData.exercises.length > 0) {
+      // Reset workout totals for each day
+      workoutTotalSets = 0;
+      workoutTotalWeight = 0;
+      workoutTotalReps = 0;
+      workoutTotalTonnage = 0;
+      setCount = 0;
+
       // Add date header with proper formatting
       doc.setFontSize(14);
       const displayDate = new Date(d.getTime() + d.getTimezoneOffset() * 60000);
@@ -47,50 +61,86 @@ export const generateWorkoutPDF = (workouts: Workouts, startDate: Date, endDate:
 
       // Add exercises
       dayData.exercises.forEach((exercise: Exercise) => {
+        // Update workout total sets first
+        workoutTotalSets += exercise.sets.length;
+
         // Create table for sets
         const tableData = exercise.sets.map((set, index) => {
-          if (exercise.name === 'Clean and Jerk') {
-            const cleanTonnage = set.weight * (set.cleans || 0);
-            const jerkTonnage = set.weight * (set.jerks || 0);
-            const totalTonnage = cleanTonnage + jerkTonnage;
+          if (exercise.isComplex && exercise.complexParts) {
+            // Handle complex exercises
+            const partReps = exercise.complexParts.map((part, i) => set[`exercise${i}Reps`] || 0);
+            const totalReps = partReps.reduce((sum, reps) => sum + reps, 0);
+            const repsDisplay = `(${partReps.join('+')}) ${totalReps}`;
+            const totalTonnage = set.weight * totalReps;
+
             return [
               index + 1,
               set.weight,
-              set.cleans || 0,
-              set.jerks || 0,
+              repsDisplay,
               Math.round(totalTonnage)
             ];
+          } else {
+            // Handle regular exercises
+            const setTonnage = set.weight * (set.reps || 0);
+            return [
+              index + 1,
+              set.weight,
+              set.reps || 0,
+              Math.round(setTonnage)
+            ];
           }
-          const setTonnage = set.weight * set.reps;
-          return [
-            index + 1,
-            set.weight,
-            set.reps,
-            Math.round(setTonnage)
-          ];
         });
 
+        // Create headers based on exercise type
+        const headers = exercise.isComplex && exercise.complexParts
+          ? [
+              [{ 
+                content: exercise.name, 
+                colSpan: 4, 
+                styles: { halign: 'center', fillColor: [40, 40, 40] } 
+              }],
+              ['Set', 'Weight (kg)', 'Reps', 'Tonnage (kg)']
+            ]
+          : [
+              [{ 
+                content: exercise.name, 
+                colSpan: 4, 
+                styles: { halign: 'center', fillColor: [40, 40, 40] } 
+              }],
+              ['Set', 'Weight (kg)', 'Reps', 'Tonnage (kg)']
+            ];
+
         // Calculate summary row data
-        if (exercise.name === 'Clean and Jerk') {
+        if (exercise.isComplex && exercise.complexParts) {
           const totalSets = exercise.sets.length;
           const avgWeight = exercise.sets.reduce((sum, set) => sum + set.weight, 0) / totalSets;
-          const totalCleans = exercise.sets.reduce((sum, set) => sum + (set.cleans || 0), 0);
-          const totalJerks = exercise.sets.reduce((sum, set) => sum + (set.jerks || 0), 0);
-          const totalTonnage = exercise.sets.reduce((sum, set) => 
-            sum + (set.weight * (set.cleans || 0)) + (set.weight * (set.jerks || 0)), 0);
           
+          // Calculate totals for each part and total reps
+          const partTotals = exercise.complexParts.map((_, partIndex) => 
+            exercise.sets.reduce((sum, set) => sum + (set[`exercise${partIndex}Reps`] || 0), 0)
+          );
+          const totalReps = partTotals.reduce((sum, reps) => sum + reps, 0);
+          const repsDisplay = `(${partTotals.join('+')}) ${totalReps}`;
+          
+          // Calculate total tonnage
+          const totalTonnage = exercise.sets.reduce((sum, set) => {
+            const setTotalReps = exercise.complexParts!.reduce((reps, _, i) => 
+              reps + (set[`exercise${i}Reps`] || 0), 0);
+            return sum + (set.weight * setTotalReps);
+          }, 0);
+
           tableData.push([
             `Total: ${totalSets}`,
             `Avg: ${Math.round(avgWeight)}`,
-            `Total: ${totalCleans}`,
-            `Total: ${totalJerks}`,
+            `Total: ${repsDisplay}`,
             `Total: ${Math.round(totalTonnage)}`
           ]);
         } else {
+          // Keep existing regular exercise summary calculation
           const totalSets = exercise.sets.length;
           const avgWeight = exercise.sets.reduce((sum, set) => sum + set.weight, 0) / totalSets;
-          const totalReps = exercise.sets.reduce((sum, set) => sum + set.reps, 0);
-          const totalTonnage = exercise.sets.reduce((sum, set) => sum + (set.weight * set.reps), 0);
+          const totalReps = exercise.sets.reduce((sum, set) => sum + (set.reps || 0), 0);
+          const totalTonnage = exercise.sets.reduce((sum, set) => sum + (set.weight * (set.reps || 0)), 0);
           
           tableData.push([
             `Total: ${totalSets}`,
@@ -99,16 +149,6 @@ export const generateWorkoutPDF = (workouts: Workouts, startDate: Date, endDate:
             `Total: ${Math.round(totalTonnage)}`
           ]);
         }
-
-        const headers = exercise.name === 'Clean and Jerk' 
-          ? [
-              [{ content: exercise.name, colSpan: 5, styles: { halign: 'center', fillColor: [40, 40, 40] } }],
-              ['Set', 'Weight (kg)', 'Cleans', 'Jerks', 'Tonnage (kg)']
-            ]
-          : [
-              [{ content: exercise.name, colSpan: 4, styles: { halign: 'center', fillColor: [40, 40, 40] } }],
-              ['Set', 'Weight (kg)', 'Reps', 'Tonnage (kg)']
-            ];
 
         doc.autoTable({
           head: headers,
@@ -129,44 +169,32 @@ export const generateWorkoutPDF = (workouts: Workouts, startDate: Date, endDate:
           }
         });
 
-        // Calculate exercise tonnage
-        let tonnage = 0;
-        if (exercise.name === 'Clean and Jerk') {
+        // Update workout totals for complex exercises
+        if (exercise.isComplex && exercise.complexParts) {
           exercise.sets.forEach(set => {
-            tonnage += (set.weight * (set.cleans || 0)) + (set.weight * (set.jerks || 0));
+            workoutTotalWeight += set.weight;
+            setCount++;
+            const totalReps = exercise.complexParts!.reduce((sum, _, i) => 
+              sum + (set[`exercise${i}Reps`] || 0), 0);
+            workoutTotalReps += totalReps;
+            workoutTotalTonnage += set.weight * totalReps;
           });
         } else {
-          tonnage = exercise.sets.reduce((total, set) => total + (set.weight * set.reps), 0);
+          // Update workout totals for regular exercises
+          exercise.sets.forEach(set => {
+            workoutTotalWeight += set.weight;
+            setCount++;
+            workoutTotalReps += set.reps || 0;
+            workoutTotalTonnage += set.weight * (set.reps || 0);
+          });
         }
 
         yPosition = (doc as any).lastAutoTable.finalY;
       });
 
-      // Calculate workout summary data
-      let workoutTotalSets = 0;
-      let workoutTotalWeight = 0;
-      let workoutTotalReps = 0;
-      let workoutTotalTonnage = 0;
-      let setCount = 0;
+      // Add workout summary
+      const avgWeight = setCount > 0 ? Math.round(workoutTotalWeight / setCount) : 0;
 
-      dayData.exercises.forEach(exercise => {
-        workoutTotalSets += exercise.sets.length;
-        exercise.sets.forEach(set => {
-          workoutTotalWeight += set.weight;
-          setCount++;
-          if (exercise.name === 'Clean and Jerk') {
-            workoutTotalReps += (set.cleans || 0) + (set.jerks || 0);
-            workoutTotalTonnage += (set.weight * (set.cleans || 0)) + (set.weight * (set.jerks || 0));
-          } else {
-            workoutTotalReps += set.reps;
-            workoutTotalTonnage += set.weight * set.reps;
-          }
-        });
-      });
-
-      const avgWeight = Math.round(workoutTotalWeight / setCount);
-
-      // Add workout summary table
       doc.autoTable({
         body: [[
           `Total Sets: ${workoutTotalSets}`,
