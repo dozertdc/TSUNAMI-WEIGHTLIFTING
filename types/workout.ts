@@ -6,9 +6,13 @@ export interface ComplexPart {
 export interface Exercise {
   id: string;
   name: string;
-  sets: Set[];
   isComplex?: boolean;
   complexParts?: ComplexPart[];
+  sets: Array<{
+    weight: number;
+    reps?: number;
+    [key: string]: number | undefined; // For complex exercise reps
+  }>;
 }
 
 export interface Set {
@@ -18,7 +22,11 @@ export interface Set {
 }
 
 export interface Workouts {
-  [date: string]: DayData;
+  [date: string]: {
+    id?: string;
+    exercises: Exercise[];
+    macros?: MacroData;
+  };
 }
 
 export interface RepMax {

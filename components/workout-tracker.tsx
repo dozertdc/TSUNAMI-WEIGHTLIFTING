@@ -44,6 +44,7 @@ const WorkoutTracker: React.FC = () => {
     setWorkouts,
     exerciseList,
     deleteExercise,
+    removeSet,
   } = useWorkoutState();
 
   const [showMacroCalculator, setShowMacroCalculator] = useState(false);
@@ -576,7 +577,7 @@ const WorkoutTracker: React.FC = () => {
                                   <Button 
                                     variant="ghost" 
                                     size="sm" 
-                                    onClick={() => startEditingExercise(exercise)}
+                                    onClick={() => startEditingExercise(exercise, day.date)}
                                   >
                                     <Edit className="h-4 w-4" />
                                   </Button>
@@ -750,7 +751,8 @@ const WorkoutTracker: React.FC = () => {
               }}
               isEditing={!!editingExercise}
               setWorkouts={setWorkouts}
-              exerciseList={exerciseList}  
+              exerciseList={exerciseList}
+              removeSet={removeSet}
             />
           </div>
         </div>

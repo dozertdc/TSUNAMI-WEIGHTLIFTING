@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Plus } from 'lucide-react';
+import { X, Plus, Trash } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -18,6 +18,7 @@ interface ExerciseModalProps {
   isEditing: boolean;
   setWorkouts: React.Dispatch<React.SetStateAction<Workouts>>;
   exerciseList: { id: string; name: string }[];
+  removeSet: (index: number) => void;
 }
 
 export const ExerciseModal: React.FC<ExerciseModalProps> = ({
@@ -30,6 +31,7 @@ export const ExerciseModal: React.FC<ExerciseModalProps> = ({
   isEditing,
   setWorkouts,
   exerciseList,
+  removeSet,
 }) => {
   const [isComplex, setIsComplex] = useState(exercise.isComplex || false);
   const [complexParts, setComplexParts] = useState<ComplexPart[]>(
@@ -268,7 +270,7 @@ export const ExerciseModal: React.FC<ExerciseModalProps> = ({
           <div className="space-y-2">
             <Label>Sets</Label>
             {currentExercise.sets.map((set, setIndex) => (
-              <div key={setIndex} className="flex gap-2">
+              <div key={setIndex} className="flex items-center gap-4">
                 <Input
                   type="number"
                   placeholder="Weight"
@@ -300,6 +302,20 @@ export const ExerciseModal: React.FC<ExerciseModalProps> = ({
                     onChange={(e) => handleUpdateSet(setIndex, 'reps', e.target.value)}
                   />
                 )}
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  onClick={async () => {
+                    try {
+                      await removeSet(setIndex);
+                    } catch (error) {
+                      console.error('Failed to remove set:', error);
+                    }
+                  }}
+                >
+                  <Trash className="h-4 w-4" />
+                </Button>
               </div>
             ))}
             <Button 

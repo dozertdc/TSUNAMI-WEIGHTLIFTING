@@ -37,6 +37,7 @@ export const useWorkoutState = () => {
     }
     return getMaximums();
   });
+  const [selectedUserId, setSelectedUserId] = useState<string>('');
 
   useEffect(() => {
     localStorage.setItem('workouts', JSON.stringify(workouts));
@@ -49,6 +50,14 @@ export const useWorkoutState = () => {
   useEffect(() => {
     localStorage.setItem('maximums', JSON.stringify(maximums));
   }, [maximums]);
+
+  useEffect(() => {
+    const user = localStorage.getItem('user');
+    if (user) {
+      const userData = JSON.parse(user);
+      setSelectedUserId(userData.id);
+    }
+  }, []);
 
   const addSet = () => {
     if (editingExercise) {
@@ -120,7 +129,7 @@ export const useWorkoutState = () => {
     return response.json();
   };
 
-  const startEditingExercise = (exercise: Exercise) => {
+  const startEditingExercise = (exercise: Exercise, date: Date) => {
     // Create a deep copy of the exercise to avoid reference issues
     const exerciseCopy = {
       ...exercise,
@@ -128,7 +137,6 @@ export const useWorkoutState = () => {
         ...set,
         weight: set.weight || 0,
         reps: set.reps || 0,
-        // Copy any complex exercise reps
         ...Object.keys(set)
           .filter(key => key.endsWith('Reps'))
           .reduce((acc, key) => ({
@@ -139,51 +147,40 @@ export const useWorkoutState = () => {
       complexParts: exercise.complexParts ? [...exercise.complexParts] : undefined
     };
     
+    setSelectedDate(date);
     setEditingExercise(exerciseCopy);
     setShowExerciseModal(true);
   };
 
-  const saveExercise = () => {
+  const saveExercise = async () => {
     if (!selectedDate) return;
 
-    const dateKey = selectedDate.toISOString().split('T')[0];
-    const exerciseToSave = editingExercise || {
-      ...newExercise,
-      id: Date.now().toString()
-    };
-
-    if (exerciseToSave.name && exerciseToSave.sets.length > 0) {
-      setWorkouts(prev => {
-        const existingWorkout = prev[dateKey] || { exercises: [] };
-        
-        if (editingExercise) {
-          // Update existing exercise
-          const updatedExercises = existingWorkout.exercises.map(ex => 
-            ex.id === editingExercise.id ? exerciseToSave : ex
-          );
-          return {
-            ...prev,
-            [dateKey]: {
-              ...existingWorkout,
-              exercises: updatedExercises
-            }
-          };
-        } else {
-          // Add new exercise
-          return {
-            ...prev,
-            [dateKey]: {
-              ...existingWorkout,
-              exercises: [...existingWorkout.exercises, exerciseToSave]
-            }
-          };
-        }
-      });
+    try {
+      const dateKey = selectedDate.toISOString().split('T')[0];
+      const currentExercises = workouts[dateKey]?.exercises || [];
+      
+      if (editingExercise) {
+        // Update existing exercise
+        const updatedExercises = currentExercises.map(ex => 
+          ex.id === editingExercise.id ? editingExercise : ex
+        );
+        await saveWorkoutToDb(selectedDate, updatedExercises);
+      } else if (newExercise.name) {
+        // Add new exercise with a temporary ID
+        const updatedExercises = [...currentExercises, {
+          ...newExercise,
+          id: crypto.randomUUID(), // This ID will be replaced by the server
+          sets: newExercise.sets.map(set => ({
+            ...set,
+            id: crypto.randomUUID() // Temporary ID for sets
+          }))
+        }];
+        await saveWorkoutToDb(selectedDate, updatedExercises);
+      }
+    } catch (error) {
+      console.error('Failed to save exercise:', error);
+      // You might want to show a toast or error message to the user here
     }
-
-    setEditingExercise(null);
-    setNewExercise({ id: '', name: '', sets: [] });
-    setShowExerciseModal(false);
   };
 
   const openDayDetailView = (date: Date) => {
@@ -244,21 +241,61 @@ export const useWorkoutState = () => {
     setExerciseList(prev => prev.filter(exercise => exercise.id !== id));
   };
 
-  const deleteExercise = (date: Date, exerciseId: string) => {
+  const deleteExercise = async (date: Date, exerciseId: string) => {
     const dateKey = date.toISOString().split('T')[0];
-    setWorkouts(prev => {
-      const dayData = prev[dateKey];
-      if (!dayData) return prev;
+    const workout = workouts[dateKey];
+    
+    if (!workout || !workout.id) {
+      console.error('No workout found for date:', dateKey);
+      return;
+    }
 
-      const updatedExercises = dayData.exercises.filter(ex => ex.id !== exerciseId);
-      return {
-        ...prev,
-        [dateKey]: {
-          ...dayData,
-          exercises: updatedExercises
+    if (!exerciseId) {
+      console.error('Invalid exercise ID:', exerciseId);
+      return;
+    }
+
+    try {
+      // Delete from database
+      const response = await fetch(
+        `http://localhost:3001/api/workouts/${workout.id}/exercises/${exerciseId}`,
+        {
+          method: 'DELETE',
+          credentials: 'include'
         }
-      };
-    });
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to delete exercise');
+      }
+
+      const result = await response.json();
+
+      // Update local state
+      setWorkouts(prev => {
+        const currentWorkout = prev[dateKey];
+        if (!currentWorkout) return prev;
+
+        if (result.workoutDeleted) {
+          // If the workout was deleted, remove it from state
+          const { [dateKey]: _, ...rest } = prev;
+          return rest;
+        }
+
+        // Otherwise just remove the exercise
+        return {
+          ...prev,
+          [dateKey]: {
+            ...currentWorkout,
+            exercises: currentWorkout.exercises.filter(ex => ex.id !== exerciseId)
+          }
+        };
+      });
+    } catch (error) {
+      console.error('Failed to delete exercise:', error);
+      throw error;
+    }
   };
 
   const logout = () => {
@@ -282,6 +319,321 @@ export const useWorkoutState = () => {
     }
   };
 
+  const saveWorkoutToDb = async (date: Date, exercises: Exercise[]) => {
+    try {
+      if (!selectedUserId) {
+        throw new Error('No user selected');
+      }
+
+      const dateKey = date.toISOString().split('T')[0];
+      const existingWorkout = workouts[dateKey];
+      
+      const workoutData = {
+        userId: selectedUserId,
+        date: dateKey,
+        status: 'completed',
+        exercises: exercises.map(exercise => ({
+          id: exercise.id,
+          name: exercise.name,
+          isComplex: exercise.isComplex,
+          complexParts: exercise.complexParts,
+          sets: exercise.sets.map(set => ({
+            id: set.id,
+            weight: set.weight || 0,
+            ...(exercise.isComplex && exercise.complexParts ? 
+              exercise.complexParts.reduce((acc, _, index) => ({
+                ...acc,
+                [`exercise${index}Reps`]: set[`exercise${index}Reps`] || 0
+              }), {})
+              : { reps: set.reps || 0 })
+          }))
+        }))
+      };
+
+      console.log('Saving workout with data:', JSON.stringify(workoutData));
+
+      // If we have an existing workout for this date, use PUT, otherwise POST
+      const method = existingWorkout ? 'PUT' : 'POST';
+      const url = existingWorkout 
+        ? `http://localhost:3001/api/workouts/${existingWorkout.id}`
+        : 'http://localhost:3001/api/workouts';
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        credentials: 'include',
+        body: JSON.stringify(workoutData)
+      });
+
+      console.log('Req:', JSON.stringify(workoutData));
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Server response:', errorText);
+        try {
+          const errorData = JSON.parse(errorText);
+          throw new Error(errorData.error || 'Failed to save workout');
+        } catch (e) {
+          throw new Error(`Server error: ${errorText.slice(0, 100)}`);
+        }
+      }
+
+      const result = await response.json();
+      console.log('Workout saved successfully:', result);
+
+      // Update local state with the server response
+      if (result.workout) {
+        setWorkouts(prev => ({
+          ...prev,
+          [dateKey]: result.workout
+        }));
+      }
+
+      // Clear modal state after successful save
+      setEditingExercise(null);
+      setNewExercise({ id: '', name: '', sets: [] });
+      setShowExerciseModal(false);
+    } catch (error) {
+      console.error('Error saving workout:', {
+        error,
+        message: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      throw error;
+    }
+  };
+
+  const fetchWorkouts = async (userId: string, date: Date) => {
+    if (!userId) {
+      console.error('No userId provided to fetchWorkouts');
+      return;
+    }
+
+    try {
+      const startDate = new Date(date.getFullYear(), date.getMonth(), 1);
+      const endDate = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+
+      // Get user from localStorage to check authentication
+      const userStr = localStorage.getItem('user');
+      if (!userStr) {
+        throw new Error('User not authenticated');
+      }
+
+      const response = await fetch(
+        `http://localhost:3001/api/workouts?` + 
+        `userId=${userId}&` +
+        `startDate=${startDate.toISOString().split('T')[0]}&` +
+        `endDate=${endDate.toISOString().split('T')[0]}`,
+        {
+          credentials: 'include',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          // Handle unauthorized
+          localStorage.removeItem('user');
+          window.location.href = '/login';
+          throw new Error('Authentication expired');
+        }
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to fetch workouts');
+      }
+      
+      const workoutData = await response.json();
+      
+      // Transform the data to match your state structure
+      const formattedWorkouts: Workouts = {};
+      workoutData.forEach((workout: any) => {
+        // Format the date key consistently
+        const dateKey = new Date(workout.date).toISOString().split('T')[0];
+        
+        formattedWorkouts[dateKey] = {
+          id: workout.id,
+          exercises: Array.isArray(workout.exercises) ? workout.exercises.map((exercise: any) => ({
+            id: exercise.id,
+            name: exercise.name,
+            isComplex: exercise.isComplex,
+            sets: Array.isArray(exercise.sets) ? exercise.sets.map((set: any) => ({
+              id: set.id,
+              weight: set.weight || 0,
+              reps: set.reps || 0,
+              ...(exercise.isComplex ? 
+                exercise.complexParts?.reduce((acc: any, _: any, index: number) => ({
+                  ...acc,
+                  [`exercise${index}Reps`]: set[`exercise${index}Reps`] || set.reps || 0
+                }), {}) 
+                : {})
+            })) : []
+          })) : []
+        };
+      });
+
+      console.log('Raw workout data:', workoutData);
+      console.log('Formatted workouts:', formattedWorkouts);
+      setWorkouts(formattedWorkouts);
+    } catch (error) {
+      console.error('Error fetching workouts:', error instanceof Error ? error.message : 'Unknown error');
+      if (error instanceof Error && error.message === 'User not authenticated') {
+        window.location.href = '/login';
+      }
+    }
+  };
+
+  // Remove the useEffect for selectedUserId changes since we'll handle it in handleUserChange
+  useEffect(() => {
+    if (selectedUserId) {
+      fetchWorkouts(selectedUserId, currentDate);
+    }
+  }, [currentDate]); // Only react to currentDate changes
+
+  // Update handleUserChange to fetch workouts for selected user
+  const handleUserChange = async (userId: string) => {
+    try {
+      // First clear the workouts
+      setWorkouts({});
+      
+      // Then update the selectedUserId
+      setSelectedUserId(userId);
+
+      // Fetch workouts for the selected user (not necessarily the logged-in user)
+      if (userId) {
+        const startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+        const endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+
+        const response = await fetch(
+          `http://localhost:3001/api/workouts?` + 
+          `userId=${userId}&` +
+          `startDate=${startDate.toISOString().split('T')[0]}&` +
+          `endDate=${endDate.toISOString().split('T')[0]}`,
+          {
+            credentials: 'include',
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch workouts for selected user');
+        }
+
+        const workoutData = await response.json();
+        const formattedWorkouts: Workouts = {};
+        
+        workoutData.forEach((workout: any) => {
+          const dateKey = new Date(workout.date).toISOString().split('T')[0];
+          formattedWorkouts[dateKey] = {
+            id: workout.id,
+            exercises: Array.isArray(workout.exercises) ? workout.exercises.map((exercise: any) => ({
+              id: exercise.id,
+              name: exercise.name,
+              isComplex: exercise.isComplex,
+              sets: Array.isArray(exercise.sets) ? exercise.sets.map((set: any) => ({
+                id: set.id,
+                weight: set.weight || 0,
+                reps: set.reps || 0,
+                ...(exercise.isComplex ? 
+                  exercise.complexParts?.reduce((acc: any, _: any, index: number) => ({
+                    ...acc,
+                    [`exercise${index}Reps`]: set[`exercise${index}Reps`] || set.reps || 0
+                  }), {}) 
+                  : {})
+              })) : []
+            })) : []
+          };
+        });
+
+        setWorkouts(formattedWorkouts);
+      }
+    } catch (error) {
+      console.error('Error changing selected user:', error);
+      // Optionally reset the selected user if there was an error
+      setSelectedUserId('');
+      setWorkouts({});
+    }
+  };
+
+  const removeSet = async (setIndex: number) => {
+    if (editingExercise) {
+      try {
+        const setToRemove = editingExercise.sets[setIndex];
+        if (!setToRemove.id) {
+          console.error('Set has no ID');
+          return;
+        }
+
+        if (!selectedDate) {
+          console.error('No date selected');
+          return;
+        }
+
+        const dateKey = selectedDate.toISOString().split('T')[0];
+        const workout = workouts[dateKey];
+        
+        if (!workout?.id) {
+          console.error('No workout found');
+          return;
+        }
+
+        // Delete from database
+        const response = await fetch(
+          `http://localhost:3001/api/workouts/${workout.id}/exercises/${editingExercise.id}/sets/${setToRemove.id}`,
+          {
+            method: 'DELETE',
+            credentials: 'include',
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to delete set');
+        }
+
+        // Update local state
+        const updatedExercise = {
+          ...editingExercise,
+          sets: editingExercise.sets.filter((_, index) => index !== setIndex)
+        };
+
+        setEditingExercise(updatedExercise);
+
+        // Update workouts state
+        setWorkouts(prev => ({
+          ...prev,
+          [dateKey]: {
+            ...prev[dateKey],
+            exercises: prev[dateKey].exercises.map(ex => 
+              ex.id === editingExercise.id ? updatedExercise : ex
+            )
+          }
+        }));
+
+      } catch (error) {
+        console.error('Failed to delete set:', error);
+        throw error; // Re-throw to be caught by the UI
+      }
+    } else {
+      // For new exercises, just update the state
+      setNewExercise(prev => ({
+        ...prev,
+        sets: prev.sets.filter((_, index) => index !== setIndex)
+      }));
+    }
+  };
+
   return {
     workouts,
     currentDate,
@@ -291,6 +643,8 @@ export const useWorkoutState = () => {
     newExercise,
     showDayDetailView,
     isReordering,
+    selectedUserId,
+    setSelectedUserId: handleUserChange,
     setCurrentDate,
     setShowExerciseModal,
     setSelectedDate,
@@ -315,6 +669,6 @@ export const useWorkoutState = () => {
     setMaximums,
     deleteExercise,
     logout,
+    removeSet,
   };
 };
-

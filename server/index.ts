@@ -3,6 +3,7 @@ import cors from 'cors';
 import userRoutes from './routes/user.routes';
 import nutritionRoutes from './routes/nutrition.routes';
 import exerciseRoutes from './routes/exercises.routes';
+import workoutRoutes from './routes/workouts.routes';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -22,13 +23,15 @@ app.use(express.json());
 app.use('/api/users', userRoutes);
 app.use('/api/nutrition', nutritionRoutes);
 app.use('/api/exercises', exerciseRoutes);
+app.use('/api/workouts', workoutRoutes);
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error(err.stack);
-  res.status(500).json({ 
+  console.error('Server error:', err);
+  res.status(500).json({
     error: 'Internal Server Error',
-    details: err.message 
+    message: err.message,
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
   });
 });
 
