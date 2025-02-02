@@ -229,7 +229,7 @@ export const useWorkoutState = () => {
     setExerciseList(prev => prev.filter(exercise => exercise.id !== id));
   };
 
-  const deleteExercise = async (date: Date, exerciseId: string) => {
+  const deleteExercise = async (exerciseId: string, date: Date) => {
     const dateKey = date.toISOString().split('T')[0];
     const workout = workouts[dateKey];
     

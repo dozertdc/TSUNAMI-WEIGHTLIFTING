@@ -18,6 +18,16 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Badge } from '@/components/ui/badge';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog"
 
 const commonSelectTriggerStyles = "bg-black text-white hover:bg-gray-800 hover:text-white h-9 px-3 text-sm font-bold";
 const commonSelectContentStyles = "bg-black text-white border border-gray-700";
@@ -59,6 +69,11 @@ const WorkoutTracker: React.FC = () => {
   const [showMacroCalculator, setShowMacroCalculator] = useState(false);
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
   const [users, setUsers] = useState<Array<{ id: string; firstName: string; lastName: string }>>([]);
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    isOpen: boolean;
+    exerciseId: string;
+    workoutId: string;
+  } | null>(null);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -186,48 +201,47 @@ const WorkoutTracker: React.FC = () => {
 
   // Add these calculations near your other useMemo hooks
   const weeklyStats = useMemo(() => {
-    const weekStart = new Date(currentDate);
-    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+    const endDate = new Date();  // Today
+    const startDate = new Date(endDate);
+    startDate.setDate(endDate.getDate() - 6);  // Previous 6 days
     
     let totalSets = 0;
     let totalReps = 0;
     let totalTonnage = 0;
     let exerciseCount = 0;
 
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(weekStart);
-      date.setDate(date.getDate() + i);
-      const dateKey = date.toISOString().split('T')[0];
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+      const dateKey = d.toISOString().split('T')[0];
       const dayData = workouts[dateKey];
 
       if (dayData?.exercises) {
         dayData.exercises.forEach(exercise => {
+          exerciseCount++;
           totalSets += exercise.sets.length;
           
           exercise.sets.forEach(set => {
-            const reps = exercise.isComplex
-              ? Object.keys(set)
-                  .filter(key => key.endsWith('Reps'))
-                  .reduce((sum, key) => sum + (Number(set[key]) || 0), 0)
-              : set.reps || 0;
-            
-            totalReps += reps;
-            totalTonnage += (set.weight || 0) * reps;
+            let setReps = 0;
+            if (exercise.isComplex) {
+              setReps = Object.keys(set)
+                .filter(key => key.endsWith('Reps'))
+                .reduce((sum, key) => sum + (Number(set[key]) || 0), 0);
+            } else {
+              setReps = set.reps || 0;
+            }
+            totalReps += setReps;
+            totalTonnage += (set.weight || 0) * setReps;
           });
-          exerciseCount++;
         });
       }
     }
-
-    const avgIntensity = exerciseCount > 0 ? totalTonnage / totalReps : 0;
 
     return {
       sets: totalSets,
       reps: totalReps,
       tonnage: totalTonnage,
-      avgIntensity
+      avgIntensity: totalReps > 0 ? totalTonnage / totalReps : 0
     };
-  }, [currentDate, workouts]);
+  }, [workouts]);
 
   // Calculate Acute:Chronic Workload Ratio
   const acwr = useMemo(() => {
@@ -273,47 +287,47 @@ const WorkoutTracker: React.FC = () => {
 
   // Add this new useMemo calculation after weeklyStats
   const monthlyStats = useMemo(() => {
-    const monthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-    const monthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+    const endDate = new Date();  // Today
+    const startDate = new Date(endDate);
+    startDate.setDate(endDate.getDate() - 27);  // Previous 27 days
     
     let totalSets = 0;
     let totalReps = 0;
     let totalTonnage = 0;
-    let totalIntensity = 0;
     let exerciseCount = 0;
 
-    for (let d = new Date(monthStart); d <= monthEnd; d.setDate(d.getDate() + 1)) {
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
       const dateKey = d.toISOString().split('T')[0];
       const dayData = workouts[dateKey];
 
       if (dayData?.exercises) {
         dayData.exercises.forEach(exercise => {
+          exerciseCount++;
           totalSets += exercise.sets.length;
           
           exercise.sets.forEach(set => {
-            const reps = exercise.isComplex
-              ? Object.keys(set)
-                  .filter(key => key.endsWith('Reps'))
-                  .reduce((sum, key) => sum + (Number(set[key]) || 0), 0)
-              : set.reps || 0;
-            
-            totalReps += reps;
-            totalTonnage += (set.weight || 0) * reps;
+            let setReps = 0;
+            if (exercise.isComplex) {
+              setReps = Object.keys(set)
+                .filter(key => key.endsWith('Reps'))
+                .reduce((sum, key) => sum + (Number(set[key]) || 0), 0);
+            } else {
+              setReps = set.reps || 0;
+            }
+            totalReps += setReps;
+            totalTonnage += (set.weight || 0) * setReps;
           });
-          exerciseCount++;
         });
       }
     }
-
-    const avgIntensity = exerciseCount > 0 ? totalTonnage / totalReps : 0;
 
     return {
       sets: totalSets,
       reps: totalReps,
       tonnage: totalTonnage,
-      avgIntensity
+      avgIntensity: totalReps > 0 ? totalTonnage / totalReps : 0
     };
-  }, [currentDate, workouts]);
+  }, [workouts]);
 
   const getAvailableExercises = (date: Date | null, exercises: string[]): string[] => {
     if (!date) return exercises;
@@ -326,6 +340,10 @@ const WorkoutTracker: React.FC = () => {
     
     // Filter out exercises that are already used on this date
     return exercises.filter(exercise => !existingExercises.includes(exercise));
+  };
+
+  const handleDeleteExercise = (exerciseId: string, workoutId: string) => {
+    setDeleteConfirmation({ isOpen: true, exerciseId, workoutId });
   };
 
   return (
@@ -613,15 +631,11 @@ const WorkoutTracker: React.FC = () => {
                                   >
                                     <Edit className="h-4 w-4" />
                                   </Button>
-                                  <Button 
-                                    variant="ghost" 
+                                  <Button
+                                    variant="ghost"
                                     size="sm"
-                                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                    onClick={() => {
-                                      if (window.confirm('Are you sure you want to delete this exercise?')) {
-                                        deleteExercise(day.date, exercise.id);
-                                      }
-                                    }}
+                                    onClick={() => handleDeleteExercise(exercise.id, dateKey)}
+                                    className="text-red-600 hover:text-red-700"
                                   >
                                     <Trash className="h-4 w-4" />
                                   </Button>
@@ -800,6 +814,37 @@ const WorkoutTracker: React.FC = () => {
           />
         </div>
       )}
+
+      <AlertDialog 
+        open={deleteConfirmation?.isOpen} 
+        onOpenChange={(isOpen) => {
+          if (!isOpen) setDeleteConfirmation(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Exercise</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this exercise? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deleteConfirmation) {
+                  const date = new Date(deleteConfirmation.workoutId);
+                  deleteExercise(deleteConfirmation.exerciseId, date);
+                  setDeleteConfirmation(null);
+                }
+              }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
