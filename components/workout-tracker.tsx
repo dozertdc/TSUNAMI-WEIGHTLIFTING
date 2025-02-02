@@ -7,9 +7,7 @@ import { ExerciseModal } from './ExerciseModal';
 import { MacroCalculator } from './MacroCalculator';
 import { formatDate, getDaysInMonth } from '../utils/dateUtils';
 import { calculateTonnage, calculateWeeklyTonnage, calculateMonthlyTonnage, calculateAverageAbsoluteIntensity } from '../utils/tonnageUtils';
-import { Exercise } from '../types/workout';
 import { formatNumberWithCommas } from '../utils/numberFormat';
-import Image from 'next/image';
 import {
   Select,
   SelectContent,
@@ -28,6 +26,8 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "@/components/ui/alert-dialog"
+import { DragDropContext, Draggable, Droppable } from '@hello-pangea/dnd';
+import { DragDropContextWrapper } from './DragDropContextWrapper';
 
 const commonSelectTriggerStyles = "bg-black text-white hover:bg-gray-800 hover:text-white h-9 px-3 text-sm font-bold";
 const commonSelectContentStyles = "bg-black text-white border border-gray-700";
@@ -74,6 +74,7 @@ const WorkoutTracker: React.FC = () => {
     exerciseId: string;
     workoutId: string;
   } | null>(null);
+  const [isReordering, setIsReordering] = useState(false);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -346,6 +347,57 @@ const WorkoutTracker: React.FC = () => {
     setDeleteConfirmation({ isOpen: true, exerciseId, workoutId });
   };
 
+  const handleReorder = async (workoutId: string, result: any) => {
+    if (!result.destination) return;
+
+    const dateKey = result.draggableId.split('-').slice(0, 3).join('-');
+    const workout = workouts[dateKey];
+    
+    if (!workout || !workout.exercises) {
+      console.error('No workout found for date:', dateKey);
+      return;
+    }
+
+    const items = Array.from(workout.exercises);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+
+    // Update local state immediately
+    setWorkouts(prev => ({
+      ...prev,
+      [dateKey]: {
+        ...prev[dateKey],
+        exercises: items
+      }
+    }));
+
+    // Update the database
+    try {
+      const response = await fetch(`http://localhost:3001/api/workouts/${workout.id}/reorder`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          exerciseIds: items.map(exercise => exercise.id)
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update exercise order');
+      }
+    } catch (error) {
+      console.error('Error updating exercise order:', error);
+      // Revert the local state if the server update fails
+      setWorkouts(prev => ({
+        ...prev,
+        [dateKey]: workout
+      }));
+    }
+  };
+
   return (
     <div>
       <Card>
@@ -616,126 +668,156 @@ const WorkoutTracker: React.FC = () => {
                               </Button>
                             </div>
                           ) : null}
-                          {dayData.exercises.map((exercise: Exercise, exerciseIndex: number) => (
-                            <Card 
-                              key={`${dateKey}-exercise-${exerciseIndex}-${exercise.id}`} 
-                              className="mb-4"
-                            >
-                              <CardHeader className="flex flex-row items-center justify-between py-2">
-                                <CardTitle className="text-lg">{exercise.name}</CardTitle>
-                                <div className="flex gap-2">
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    onClick={() => startEditingExercise(exercise, day.date)}
+                          {hasWorkout && (
+                            <DragDropContextWrapper onDragEnd={(result) => handleReorder(dayData.id, result)}>
+                              <Droppable droppableId={`workout-${dateKey}`} isDropDisabled={false}>
+                                {(provided) => (
+                                  <div
+                                    {...provided.droppableProps}
+                                    ref={provided.innerRef}
+                                    className="space-y-4"
                                   >
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => handleDeleteExercise(exercise.id, dateKey)}
-                                    className="text-red-600 hover:text-red-700"
-                                  >
-                                    <Trash className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              </CardHeader>
-                              <CardContent>
-                                <table className="w-full">
-                                  <thead>
-                                    <tr>
-                                      <th className="text-left">Set</th>
-                                      <th className="text-left">Weight (kg)</th>
-                                      <th className="text-left">Reps</th>
-                                      <th className="text-left">Tonnage (kg)</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    {exercise.sets.map((set, setIndex) => {
-                                      // Calculate total reps for complex exercises
-                                      const totalReps = exercise.isComplex
-                                        ? Object.keys(set)
-                                            .filter(key => key.endsWith('Reps'))
-                                            .reduce((sum, key) => sum + (Number(set[key]) || 0), 0)
-                                        : set.reps || 0;
-
-                                      // Calculate tonnage for this set
-                                      const setTonnage = (set.weight || 0) * totalReps;
-
-                                      return (
-                                        <tr key={`${dateKey}-exercise-${exerciseIndex}-set-${setIndex}`}>
-                                          <td>{setIndex + 1}</td>
-                                          <td>{set.weight}</td>
-                                          <td>
-                                            {exercise.isComplex ? (
-                                              <div>
-                                                <div>{totalReps}</div>
-                                                <div className="text-sm text-gray-500">
-                                                  ({exercise.complexParts?.map((part, i) => (
-                                                    <span key={i}>
-                                                      {i > 0 && ' + '}
-                                                      {set[`exercise${i}Reps`] || 0}
-                                                    </span>
-                                                  ))})
+                                    {dayData.exercises.map((exercise, index) => (
+                                      <Draggable
+                                        key={exercise.id}
+                                        draggableId={`${dateKey}-${exercise.id}`}
+                                        index={index}
+                                        isDragDisabled={false}
+                                      >
+                                        {(provided) => (
+                                          <div
+                                            ref={provided.innerRef}
+                                            {...provided.draggableProps}
+                                            {...provided.dragHandleProps}
+                                            className="mb-4"
+                                          >
+                                            <Card>
+                                              <CardHeader className="flex flex-row items-center justify-between py-2">
+                                                <div className="flex items-center gap-2">
+                                                  <CardTitle className="text-lg">{exercise.name}</CardTitle>
                                                 </div>
-                                              </div>
-                                            ) : (
-                                              set.reps
-                                            )}
-                                          </td>
-                                          <td>{formatNumberWithCommas(setTonnage)}</td>
-                                        </tr>
-                                      );
-                                    })}
-                                    <tr className="border-t font-semibold">
-                                      <td>{exercise.sets.length}</td>
-                                      <td>{formatNumberWithCommas(Math.round(
-                                        exercise.sets.reduce((sum, set) => sum + (set.weight || 0), 0) / exercise.sets.length
-                                      ))}</td>
-                                      <td>
-                                        {exercise.isComplex ? (
-                                          <>
-                                            <div>{formatNumberWithCommas(
-                                              exercise.sets.reduce((total, set) => 
-                                                total + Object.keys(set)
-                                                  .filter(key => key.endsWith('Reps'))
-                                                  .reduce((sum, key) => sum + (Number(set[key]) || 0), 0)
-                                            , 0)
-                                            )}</div>
-                                            <div className="text-sm text-gray-500">
-                                              ({exercise.complexParts?.map((part, i) => (
-                                                <span key={i}>
-                                                  {i > 0 && ' + '}
-                                                  {formatNumberWithCommas(
-                                                    exercise.sets.reduce((sum, set) => sum + (Number(set[`exercise${i}Reps`]) || 0), 0)
-                                                  )}
-                                                </span>
-                                              ))})
-                                            </div>
-                                          </>
-                                        ) : (
-                                          formatNumberWithCommas(
-                                            exercise.sets.reduce((sum, set) => sum + (set.reps || 0), 0)
-                                          )
+                                                <div className="flex gap-2">
+                                                  <Button 
+                                                    variant="ghost" 
+                                                    size="sm" 
+                                                    onClick={() => startEditingExercise(exercise, day.date)}
+                                                  >
+                                                    <Edit className="h-4 w-4" />
+                                                  </Button>
+                                                  <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => handleDeleteExercise(exercise.id, dateKey)}
+                                                    className="text-red-600 hover:text-red-700"
+                                                  >
+                                                    <Trash className="h-4 w-4" />
+                                                  </Button>
+                                                </div>
+                                              </CardHeader>
+                                              <CardContent>
+                                                <table className="w-full">
+                                                  <thead>
+                                                    <tr>
+                                                      <th className="text-left">Set</th>
+                                                      <th className="text-left">Weight (kg)</th>
+                                                      <th className="text-left">Reps</th>
+                                                      <th className="text-left">Tonnage (kg)</th>
+                                                    </tr>
+                                                  </thead>
+                                                  <tbody>
+                                                    {exercise.sets.map((set, setIndex) => {
+                                                      // Calculate total reps for complex exercises
+                                                      const totalReps = exercise.isComplex
+                                                        ? Object.keys(set)
+                                                            .filter(key => key.endsWith('Reps'))
+                                                            .reduce((sum, key) => sum + (Number(set[key]) || 0), 0)
+                                                        : set.reps || 0;
+
+                                                      // Calculate tonnage for this set
+                                                      const setTonnage = (set.weight || 0) * totalReps;
+
+                                                      return (
+                                                        <tr key={`${dateKey}-exercise-${index}-set-${setIndex}`}>
+                                                          <td>{setIndex + 1}</td>
+                                                          <td>{set.weight}</td>
+                                                          <td>
+                                                            {exercise.isComplex ? (
+                                                              <div>
+                                                                <div>{totalReps}</div>
+                                                                <div className="text-sm text-gray-500">
+                                                                  ({exercise.complexParts?.map((part, i) => (
+                                                                    <span key={i}>
+                                                                      {i > 0 && ' + '}
+                                                                      {set[`exercise${i}Reps`] || 0}
+                                                                    </span>
+                                                                  ))})
+                                                                </div>
+                                                              </div>
+                                                            ) : (
+                                                              set.reps
+                                                            )}
+                                                          </td>
+                                                          <td>{formatNumberWithCommas(setTonnage)}</td>
+                                                        </tr>
+                                                      );
+                                                    })}
+                                                    <tr className="border-t font-semibold">
+                                                      <td>{exercise.sets.length}</td>
+                                                      <td>{formatNumberWithCommas(Math.round(
+                                                        exercise.sets.reduce((sum, set) => sum + (set.weight || 0), 0) / exercise.sets.length
+                                                      ))}</td>
+                                                      <td>
+                                                        {exercise.isComplex ? (
+                                                          <>
+                                                            <div>{formatNumberWithCommas(
+                                                              exercise.sets.reduce((total, set) => 
+                                                                total + Object.keys(set)
+                                                                  .filter(key => key.endsWith('Reps'))
+                                                                  .reduce((sum, key) => sum + (Number(set[key]) || 0), 0)
+                                                              , 0)
+                                                            )}</div>
+                                                            <div className="text-sm text-gray-500">
+                                                              ({exercise.complexParts?.map((part, i) => (
+                                                                <span key={i}>
+                                                                  {i > 0 && ' + '}
+                                                                  {formatNumberWithCommas(
+                                                                    exercise.sets.reduce((sum, set) => sum + (Number(set[`exercise${i}Reps`]) || 0), 0)
+                                                                  )}
+                                                                </span>
+                                                              ))})
+                                                            </div>
+                                                          </>
+                                                        ) : (
+                                                          formatNumberWithCommas(
+                                                            exercise.sets.reduce((sum, set) => sum + (set.reps || 0), 0)
+                                                          )
+                                                        )}
+                                                      </td>
+                                                      <td>{formatNumberWithCommas(Math.round(
+                                                        exercise.sets.reduce((sum, set) => {
+                                                          const totalReps = exercise.isComplex
+                                                            ? Object.keys(set)
+                                                                .filter(key => key.endsWith('Reps'))
+                                                                .reduce((sum, key) => sum + (Number(set[key]) || 0), 0)
+                                                            : set.reps || 0;
+                                                          return sum + (set.weight || 0) * totalReps;
+                                                        }, 0)
+                                                      ))}</td>
+                                                    </tr>
+                                                  </tbody>
+                                                </table>
+                                              </CardContent>
+                                            </Card>
+                                          </div>
                                         )}
-                                      </td>
-                                      <td>{formatNumberWithCommas(Math.round(
-                                        exercise.sets.reduce((sum, set) => {
-                                          const totalReps = exercise.isComplex
-                                            ? Object.keys(set)
-                                                .filter(key => key.endsWith('Reps'))
-                                                .reduce((sum, key) => sum + (Number(set[key]) || 0), 0)
-                                            : set.reps || 0;
-                                          return sum + (set.weight || 0) * totalReps;
-                                        }, 0)
-                                      ))}</td>
-                                    </tr>
-                                  </tbody>
-                                </table>
-                              </CardContent>
-                            </Card>
-                          ))}
+                                      </Draggable>
+                                    ))}
+                                    {provided.placeholder}
+                                  </div>
+                                )}
+                              </Droppable>
+                            </DragDropContextWrapper>
+                          )}
                         </>
                       ) : (
                         <p className="text-center text-muted-foreground">No workout or macros recorded for this day.</p>

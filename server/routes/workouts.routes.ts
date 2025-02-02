@@ -696,4 +696,32 @@ router.patch('/:workoutId', async (req, res) => {
   }
 });
 
+// Add this new endpoint
+router.patch('/:workoutId/reorder', async (req, res) => {
+  const { workoutId } = req.params;
+  const { exerciseIds } = req.body; // Array of exercise IDs in new order
+
+  console.log('exerciseIds', exerciseIds);
+  console.log('workoutId', workoutId);
+
+  try {
+    await pool.query('BEGIN');
+
+    // Update the order of each exercise
+    for (let i = 0; i < exerciseIds.length; i++) {
+      await pool.query(
+        'UPDATE workout_exercises SET order_index = $1 WHERE id = $2 AND workout_id = $3',
+        [i, exerciseIds[i], workoutId]
+      );
+    }
+
+    await pool.query('COMMIT');
+    res.json({ message: 'Exercise order updated successfully' });
+  } catch (error) {
+    await pool.query('ROLLBACK');
+    console.error('Error reordering exercises:', error);
+    res.status(500).json({ error: 'Failed to reorder exercises' });
+  }
+});
+
 export default router; 
