@@ -98,10 +98,7 @@ const WorkoutTracker: React.FC = () => {
     };
 
     fetchUsers();
-  }, []); // Remove selectedUserId from dependency array to prevent loops
-
-  const weeklyTonnage = useMemo(() => calculateWeeklyTonnage(currentDate, workouts), [currentDate, workouts]);
-  const monthlyTonnage = useMemo(() => calculateMonthlyTonnage(currentDate, workouts), [currentDate, workouts]);
+  }, []);
 
   // Add scroll to today functionality
   const scrollToToday = () => {
@@ -194,7 +191,6 @@ const WorkoutTracker: React.FC = () => {
     let totalSets = 0;
     let totalReps = 0;
     let totalTonnage = 0;
-    let totalIntensity = 0;
     let exerciseCount = 0;
 
     for (let i = 0; i < 7; i++) {

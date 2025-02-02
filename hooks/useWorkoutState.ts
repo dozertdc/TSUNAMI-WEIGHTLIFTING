@@ -370,6 +370,7 @@ export const useWorkoutState = () => {
       if (result.workout) {
         const formattedWorkout = {
           id: result.workout.id,
+          status: result.workout.status,
           exercises: Array.isArray(result.workout.exercises) ? result.workout.exercises.map((exercise: any) => ({
             id: exercise.id,
             name: exercise.name,
@@ -474,6 +475,7 @@ export const useWorkoutState = () => {
         
         formattedWorkouts[dateKey] = {
           id: workout.id,
+          status: workout.status,
           exercises: Array.isArray(workout.exercises) ? workout.exercises.map((exercise: any) => ({
             id: exercise.id,
             name: exercise.name,

@@ -24,6 +24,7 @@ export interface Set {
 export interface Workouts {
   [date: string]: {
     id?: string;
+    status?: 'completed' | 'planned';
     exercises: Exercise[];
     macros?: MacroData;
   };
