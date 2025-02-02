@@ -419,27 +419,23 @@ export const useWorkoutState = () => {
   };
 
   const fetchWorkouts = async (userId: string, date: Date) => {
-    console.log('fetchWorkouts called with:', { userId, date });
     if (!userId) {
       console.error('No userId provided to fetchWorkouts');
       return;
     }
 
     try {
-      const startDate = new Date(date.getFullYear(), date.getMonth(), 1);
-      const endDate = new Date(date.getFullYear(), date.getMonth() + 1, 0);
-
-      console.log('Fetching workouts with params:', {
-        userId,
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString()
-      });
-
-      // Get user from localStorage to check authentication
-      const userStr = localStorage.getItem('user');
-      if (!userStr) {
-        throw new Error('User not authenticated');
-      }
+      // Get first and last day shown on calendar
+      const firstDayOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
+      const lastDayOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+      
+      // Adjust to include days from previous/next month shown on calendar
+      const startDate = new Date(firstDayOfMonth);
+      startDate.setDate(startDate.getDate() - firstDayOfMonth.getDay()); // Go back to Sunday
+      
+      const endDate = new Date(lastDayOfMonth);
+      const daysToAdd = 6 - lastDayOfMonth.getDay();
+      endDate.setDate(endDate.getDate() + daysToAdd); // Go forward to Saturday
 
       const response = await fetch(
         `http://localhost:3001/api/workouts?` + 
