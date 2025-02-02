@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Plus, Edit, ChevronDown, ChevronUp, GripVertical, Trash } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Edit, ChevronDown, ChevronUp, Trash, CheckCircle } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useWorkoutState } from '../hooks/useWorkoutState';
@@ -53,6 +53,7 @@ const WorkoutTracker: React.FC = () => {
     removeSet,
     selectedUserId,
     setSelectedUserId,
+    updateWorkoutStatus,
   } = useWorkoutState();
 
   const [showMacroCalculator, setShowMacroCalculator] = useState(false);
@@ -508,14 +509,19 @@ const WorkoutTracker: React.FC = () => {
                     dateKey === getLocalDateString(new Date()) ? 'border-2 border-primary' : ''
                   }`}
                 >
-                  <CardHeader className="flex flex-row items-center justify-between py-4">
+                  <CardHeader className="flex flex-row items-center justify-between py-2">
                     <div className="flex flex-col">
                       <div className="flex items-center gap-2">
                         <span className="text-lg font-semibold">{formatDate(day.date)}</span>
                         {dayData?.status === 'planned' && (
-                          <Badge variant="outline" className="bg-yellow-100 text-yellow-800">
-                            Planned
-                          </Badge>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => updateWorkoutStatus(day.date, 'completed')}
+                            className="flex items-center gap-1 h-5 px-2 text-xs font-semibold leading-none bg-yellow-100 text-yellow-800">
+                            <CheckCircle className="h-3 w-3" />
+                            Mark as Complete
+                          </Button>
                         )}
                         {dayData?.status === 'completed' && (
                           <Badge variant="outline" className="bg-green-100 text-green-800">
@@ -533,7 +539,6 @@ const WorkoutTracker: React.FC = () => {
                           {dayData.exercises.length} exercise{dayData.exercises.length !== 1 ? 's' : ''}
                         </span>
                       )}
-                      
                       <Button
                         variant="ghost"
                         size="sm"

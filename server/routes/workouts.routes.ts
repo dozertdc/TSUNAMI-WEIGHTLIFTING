@@ -674,4 +674,26 @@ router.delete('/:workoutId/exercises/:exerciseId/sets/:setId', async (req, res) 
   }
 });
 
+// Update workout status
+router.patch('/:workoutId', async (req, res) => {
+  const { workoutId } = req.params;
+  const { status } = req.body;
+
+  try {
+    const result = await pool.query(
+      'UPDATE workouts SET status = $1 WHERE id = $2 RETURNING *',
+      [status, workoutId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Workout not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error updating workout status:', error);
+    res.status(500).json({ error: 'Failed to update workout status' });
+  }
+});
+
 export default router; 

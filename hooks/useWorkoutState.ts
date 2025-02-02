@@ -315,35 +315,25 @@ export const useWorkoutState = () => {
 
   const saveWorkoutToDb = async (date: Date, exercises: Exercise[]) => {
     try {
-      if (!selectedUserId) {
-        throw new Error('No user selected');
-      }
-
-      const dateKey = getLocalDateString(date);
-      const existingWorkout = workouts[dateKey];
+      const dateKey = date.toISOString().split('T')[0];
+      const today = new Date().toISOString().split('T')[0];
       
+      // Set status based on date
+      const status = dateKey > today ? 'planned' : 'completed';
+
       const workoutData = {
         userId: selectedUserId,
         date: dateKey,
-        status: 'completed',
+        status,
         exercises: exercises.map(exercise => ({
-          id: exercise.id,
-          name: exercise.name,
-          isComplex: exercise.isComplex,
-          complexParts: exercise.complexParts,
+          ...exercise,
           sets: exercise.sets.map(set => ({
-            id: set.id,
-            weight: set.weight || 0,
-            ...(exercise.isComplex && exercise.complexParts ? 
-              exercise.complexParts.reduce((acc, _, index) => ({
-                ...acc,
-                [`exercise${index}Reps`]: set[`exercise${index}Reps`] || 0
-              }), {})
-              : { reps: set.reps || 0 })
+            ...set
           }))
         }))
       };
 
+      const existingWorkout = workouts[dateKey];
       const method = existingWorkout ? 'PUT' : 'POST';
       const url = existingWorkout 
         ? `http://localhost:3001/api/workouts/${existingWorkout.id}`
@@ -353,7 +343,6 @@ export const useWorkoutState = () => {
         method,
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
         },
         credentials: 'include',
         body: JSON.stringify(workoutData)
@@ -625,6 +614,37 @@ export const useWorkoutState = () => {
     }
   };
 
+  const updateWorkoutStatus = async (date: Date, status: 'planned' | 'completed') => {
+    try {
+      const dateKey = date.toISOString().split('T')[0];
+      const workout = workouts[dateKey];
+      
+      if (!workout) return;
+
+      const response = await fetch(`http://localhost:3001/api/workouts/${workout.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ status })
+      });
+
+      if (!response.ok) throw new Error('Failed to update workout status');
+
+      setWorkouts(prev => ({
+        ...prev,
+        [dateKey]: {
+          ...prev[dateKey],
+          status
+        }
+      }));
+    } catch (error) {
+      console.error('Error updating workout status:', error);
+      throw error;
+    }
+  };
+
   return {
     workouts,
     currentDate,
@@ -661,5 +681,6 @@ export const useWorkoutState = () => {
     deleteExercise,
     logout,
     removeSet,
+    updateWorkoutStatus,
   };
 };
