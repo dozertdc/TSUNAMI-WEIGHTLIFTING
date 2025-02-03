@@ -1,113 +1,90 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import Image from 'next/image';
-import { 
-  Menu, 
-  X, 
-  Calendar, 
-  BarChart2, 
-  Dumbbell, 
-  List, 
-  User, 
-  LogOut,
-  Utensils
-} from 'lucide-react';
-import { useToast } from "@/components/ui/use-toast";
+import { useRouter } from 'next/navigation';
+import { Menu, X, LayoutDashboard, LineChart, Dumbbell, Apple, List, UserCircle, LogOut } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 export function Header() {
-  const router = useRouter();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const { toast } = useToast();
+  const router = useRouter();
 
   const handleLogout = () => {
-    // Clear all auth-related data
     localStorage.removeItem('user');
-    
-    toast({
-      title: "Logged Out",
-      description: "You have been successfully logged out",
-    });
-    
     router.push('/login');
   };
 
   const menuItems = [
-    { label: 'Dashboard', href: '/dashboard', icon: Calendar },
-    { label: 'Analyzer', href: '/analyzer', icon: BarChart2 },
-    { label: 'Maximums', href: '/maximums', icon: Dumbbell },
-    { label: 'Nutrition', href: '/nutrition', icon: Utensils },
-    { label: 'Exercise List', href: '/exercises', icon: List },
-    { label: 'Profile', href: '/profile', icon: User },
+    { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/analyzer', label: 'Analyzer', icon: LineChart },
+    { href: '/maximums', label: 'Maximums', icon: Dumbbell },
+    { href: '/nutrition', label: 'Nutrition', icon: Apple },
+    { href: '/exercises', label: 'Exercises', icon: List },
+    { href: '/profile', label: 'Profile', icon: UserCircle },
   ];
 
   return (
-    <nav className="bg-white shadow-sm fixed top-0 left-0 right-0 z-50">
+    <header className="fixed top-0 left-0 right-0 z-50 bg-white border-b">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          {/* Logo and brand */}
-          <div className="flex items-center">
-            <div 
-              className="flex-shrink-0 flex items-center cursor-pointer" 
-              onClick={() => router.push('/')}
-            >
-              <Image
-                src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/wave-McwTzchM8YQSVkpgAADjaegFbYZ1oP.png"
-                alt="Tsunami Logo"
-                width={32}
-                height={32}
-                className="dark:invert"
-              />
+        <div className="flex justify-between items-center h-16">
+          {/* Logo Section */}
+          <div className="flex-shrink-0 flex items-center">
+            <Link href="/" className="flex items-center gap-2">
+              <div className="relative w-8 h-8">
+                <Image 
+                  src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/wave-McwTzchM8YQSVkpgAADjaegFbYZ1oP.png"
+                  alt="Tsunami Logo"
+                  width={32}
+                  height={32}
+                  className="object-contain"
+                  priority
+                />
+              </div>
               <span className="ml-2 text-xl font-bold">Tsunami</span>
-            </div>
+            </Link>
           </div>
 
-          {/* Desktop menu */}
-          <div className="hidden sm:flex sm:items-center">
+          {/* Desktop Navigation */}
+          <nav className="hidden md:flex items-center space-x-4">
             {menuItems.map((item) => (
               <Button
                 key={item.href}
                 variant="ghost"
                 onClick={() => router.push(item.href)}
-                className="ml-4 flex items-center gap-2"
+                className="flex items-center gap-2"
               >
                 {item.icon && <item.icon className="h-4 w-4" />}
-                {item.label}
+                <span className="hidden lg:inline">{item.label}</span>
               </Button>
             ))}
             <Button
               variant="ghost"
               onClick={handleLogout}
-              className="ml-4 flex items-center gap-2"
+              className="flex items-center gap-2"
             >
               <LogOut className="h-4 w-4" />
-              Logout
+              <span className="hidden lg:inline">Logout</span>
             </Button>
-          </div>
+          </nav>
 
-          {/* Mobile menu button */}
-          <div className="flex items-center sm:hidden">
+          {/* Mobile Menu Button */}
+          <div className="md:hidden">
             <Button
               variant="ghost"
+              size="sm"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="inline-flex items-center justify-center p-2"
+              className="p-2"
             >
-              {isMenuOpen ? (
-                <X className="h-6 w-6" />
-              ) : (
-                <Menu className="h-6 w-6" />
-              )}
+              {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </Button>
           </div>
         </div>
-      </div>
 
-      {/* Mobile menu */}
-      {isMenuOpen && (
-        <div className="sm:hidden bg-white">
-          <div className="pt-2 pb-3 space-y-1">
+        {/* Mobile Menu */}
+        <div className={`${isMenuOpen ? 'block' : 'hidden'} md:hidden border-t`}>
+          <div className="py-2 space-y-1">
             {menuItems.map((item) => (
               <Button
                 key={item.href}
@@ -116,7 +93,7 @@ export function Header() {
                   router.push(item.href);
                   setIsMenuOpen(false);
                 }}
-                className="w-full justify-start px-4 flex items-center gap-2"
+                className="w-full justify-start gap-2"
               >
                 {item.icon && <item.icon className="h-4 w-4" />}
                 {item.label}
@@ -128,14 +105,14 @@ export function Header() {
                 handleLogout();
                 setIsMenuOpen(false);
               }}
-              className="w-full justify-start px-4 flex items-center gap-2"
+              className="w-full justify-start gap-2"
             >
               <LogOut className="h-4 w-4" />
               Logout
             </Button>
           </div>
         </div>
-      )}
-    </nav>
+      </div>
+    </header>
   );
 }
