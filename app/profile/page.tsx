@@ -87,7 +87,6 @@ export default function ProfilePage() {
         }
         
         const data = await response.json();
-        console.log('Fetched coaches:', data);
         setCoaches(data);
       } catch (error) {
         console.error('Error fetching coaches:', error);
@@ -166,9 +165,7 @@ export default function ProfilePage() {
   };
 
   const handleCoachSelect = (value: string) => {
-    console.log('Selected coach value:', value);
     const newCoachedBy = value === "none" ? undefined : value;
-    console.log('New coached_by value:', newCoachedBy);
     
     setProfile(prev => ({ 
       ...prev, 

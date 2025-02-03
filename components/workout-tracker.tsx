@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Plus, Edit, ChevronDown, ChevronUp, Trash, CheckCircle } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,12 +34,6 @@ import { DragDropContextWrapper } from './DragDropContextWrapper';
 const commonSelectTriggerStyles = "bg-black text-white hover:bg-gray-800 hover:text-white h-9 px-3 text-sm font-bold";
 const commonSelectContentStyles = "bg-black text-white border border-gray-700";
 const commonSelectItemStyles = "cursor-pointer font-bold hover:bg-gray-800 hover:text-white focus:bg-gray-800 focus:text-white";
-
-const getLocalDateString = (date: Date) => {
-  return new Date(date.getTime() - (date.getTimezoneOffset() * 60000))
-    .toISOString()
-    .split('T')[0];
-};
 
 const WorkoutTracker: React.FC = () => {
   const {
@@ -77,6 +71,7 @@ const WorkoutTracker: React.FC = () => {
     workoutId: string;
   } | null>(null);
   const [isReordering, setIsReordering] = useState(false);
+  const hasScrolledToToday = useRef(false);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -119,22 +114,29 @@ const WorkoutTracker: React.FC = () => {
     fetchUsers();
   }, []);
 
-  // Add scroll to today functionality
+  const getLocalDateString = (date: Date) => {
+    return new Date(date.getTime() - (date.getTimezoneOffset() * 60000))
+      .toISOString()
+      .split('T')[0];
+  };
+
   const scrollToToday = () => {
     const today = new Date();
     const todayStr = getLocalDateString(today);
-    console.log('Today in local timezone:', todayStr);
     const element = document.getElementById(`day-${todayStr}`);
     if (element) {
       element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    } else {
-      console.log('Could not find element for today:', `day-${todayStr}`);
     }
   };
 
   useEffect(() => {
-    const timer = setTimeout(scrollToToday, 100);
-    return () => clearTimeout(timer);
+    if (workouts && !hasScrolledToToday.current) {
+      const timer = setTimeout(() => {
+        scrollToToday();
+        hasScrolledToToday.current = true;  // Mark that we've scrolled
+      }, 100);
+      return () => clearTimeout(timer);
+    }
   }, [workouts]);
 
   const handleSaveMacros = (macros: MacroData) => {
@@ -198,7 +200,6 @@ const WorkoutTracker: React.FC = () => {
   };
 
   const handleUserChangeFromDropdown = (userId: string) => {
-    console.log('handleUserChangeFromDropdown called with:', userId);
     setSelectedUserId(userId);
   };
 
@@ -332,17 +333,17 @@ const WorkoutTracker: React.FC = () => {
     };
   }, [workouts]);
 
-  const getAvailableExercises = (date: Date | null, exercises: string[]): string[] => {
-    if (!date) return exercises;
-    
-    // Get the date key in the format you're using
-    const dateKey = date.toISOString().split('T')[0];
-    
-    // Get existing exercises for this date
-    const existingExercises = workouts[dateKey]?.exercises?.map(e => e.name) || [];
-    
-    // Filter out exercises that are already used on this date
-    return exercises.filter(exercise => !existingExercises.includes(exercise));
+  const getAvailableExercises = () => {
+    try {
+      const savedExercises = localStorage.getItem('exerciseList');
+      if (!savedExercises) return [];
+      
+      const exercises = JSON.parse(savedExercises);
+      return exercises.map((exercise: { name: string }) => exercise.name);
+    } catch (error) {
+      console.error('Error getting available exercises:', error);
+      return [];
+    }
   };
 
   const handleDeleteExercise = (exerciseId: string, workoutId: string) => {

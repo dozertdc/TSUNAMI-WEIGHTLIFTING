@@ -10,11 +10,9 @@ export default function ExercisesPage() {
 
   // Use useCallback to maintain reference stability
   const handleUpdateExercises = useCallback((updatedExercises: Exercise[]) => {
-    console.log('Updating exercises:', updatedExercises);
     setExercises(updatedExercises);
   }, []);
 
-  console.log('ExercisesPage rendering, exercises:', exercises);
 
   return (
     <AuthCheck>

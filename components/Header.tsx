@@ -12,7 +12,7 @@ export function Header() {
   const router = useRouter();
 
   const handleLogout = () => {
-    localStorage.removeItem('user');
+    localStorage.clear();
     router.push('/login');
   };
 

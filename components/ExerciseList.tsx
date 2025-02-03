@@ -20,17 +20,10 @@ interface ExerciseListProps {
 }
 
 export function ExerciseList({ exercises, onUpdateExercises }: ExerciseListProps) {
-  console.log('ExerciseList component rendering', { 
-    exercises, 
-    hasCallback: !!onUpdateExercises,
-    callbackType: typeof onUpdateExercises
-  });
-  
   const [editingId, setEditingId] = useState<number | null>(null);
   const [tempOneRM, setTempOneRM] = useState<string>('');
 
   useEffect(() => {
-    console.log('useEffect running, onUpdateExercises:', typeof onUpdateExercises);
     
     if (typeof onUpdateExercises !== 'function') {
       console.error('onUpdateExercises is not a function:', onUpdateExercises);
@@ -41,9 +34,7 @@ export function ExerciseList({ exercises, onUpdateExercises }: ExerciseListProps
       try {
         const user = localStorage.getItem('user');
         const userId = user ? JSON.parse(user).id : null;
-        console.log('Attempting to fetch exercises. UserId:', userId);
         if (!userId) {
-          console.log('No userId found in localStorage');
           return;
         }
 
@@ -51,12 +42,9 @@ export function ExerciseList({ exercises, onUpdateExercises }: ExerciseListProps
           credentials: 'include',
         });
         
-        console.log('Fetch response:', response.status, response.statusText);
-        
         if (!response.ok) throw new Error('Failed to fetch exercises');
         
         const data = await response.json();
-        console.log('Fetched exercises:', data);
         onUpdateExercises(data);
       } catch (error) {
         console.error('Error in fetchExercises:', error);
@@ -71,7 +59,6 @@ export function ExerciseList({ exercises, onUpdateExercises }: ExerciseListProps
       const user = localStorage.getItem('user');
       const userId = user ? JSON.parse(user).id : null;
       const isAuthenticated = localStorage.getItem('isAuthenticated');
-      console.log('Storage state:', { userId, user, isAuthenticated });
     };
 
     // Check on mount
@@ -101,12 +88,6 @@ export function ExerciseList({ exercises, onUpdateExercises }: ExerciseListProps
         ...exercise,
         one_rep_max: tempOneRM ? parseFloat(tempOneRM) : undefined
       };
-
-      console.log('Saving exercise:', {
-        userId,
-        exerciseId: exercise.id,
-        one_rep_max: updatedExercise.one_rep_max
-      });
 
       const response = await fetch(`http://localhost:3001/api/exercises/user/${userId}/${exercise.id}`, {
         method: 'PATCH',

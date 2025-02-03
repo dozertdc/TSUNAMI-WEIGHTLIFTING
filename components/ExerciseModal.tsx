@@ -146,7 +146,6 @@ export const ExerciseModal: React.FC<ExerciseModalProps> = ({
 
   const handleExerciseSelect = (value: string) => {
     if (value === 'Clean and Jerk') {
-      console.log('handleExerciseSelect');
       setIsComplex(true);
       const newParts = [
         { name: 'Clean' },

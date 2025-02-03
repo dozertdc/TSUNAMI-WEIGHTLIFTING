@@ -1,6 +1,17 @@
 import { useState, useEffect } from 'react';
 import { Exercise, Workouts, Set, MacroData, Maximums } from '../types/workout';
 
+const getMaximums = async () => {
+  try {
+    const response = await fetch('http://localhost:3001/api/maximums');
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error fetching maximums:', error);
+    return {};
+  }
+};
+
 export const useWorkoutState = () => {
   const [workouts, setWorkouts] = useState<Workouts>({});
 
@@ -15,13 +26,7 @@ export const useWorkoutState = () => {
   });
   const [showDayDetailView, setShowDayDetailView] = useState(false);
   const [isReordering, setIsReordering] = useState(false);
-  const [exerciseList, setExerciseList] = useState<{ id: string; name: string }[]>(() => {
-    const savedExerciseList = localStorage.getItem('exerciseList');
-    if (savedExerciseList) {
-      return JSON.parse(savedExerciseList);
-    }
-    return getExercises();
-  });
+  const [exerciseList, setExerciseList] = useState<string[]>([]);
   const [maximums, setMaximums] = useState<Maximums>(() => {
     const savedMaximums = localStorage.getItem('maximums');
     if (savedMaximums) {
@@ -32,8 +37,26 @@ export const useWorkoutState = () => {
   const [selectedUserId, setSelectedUserId] = useState<string>('');
 
   useEffect(() => {
-    localStorage.setItem('exerciseList', JSON.stringify(exerciseList));
-  }, [exerciseList]);
+    const getExercises = async () => {
+      try {
+        const user = localStorage.getItem('user');
+        const userId = user ? JSON.parse(user).id : null;
+        
+        if (!userId) {
+          console.error('No user ID found');
+          return;
+        }
+        const response = await fetch(`http://localhost:3001/api/exercises/user/${userId}`);
+        const data = await response.json();
+        const exerciseNames = data.map((exercise: any) => exercise.name);
+        setExerciseList(exerciseNames);
+        localStorage.setItem('exerciseList', JSON.stringify(data)); // Save actual exercise list
+      } catch (error) {
+        console.error('Error fetching exercises:', error);
+      }
+    };
+    getExercises();
+  }, []); // Only run on mount
 
   useEffect(() => {
     localStorage.setItem('maximums', JSON.stringify(maximums));
@@ -287,7 +310,6 @@ export const useWorkoutState = () => {
   };
 
   const logout = () => {
-    console.log('Logging out');
     if (typeof window !== 'undefined') {
       // Clear localStorage
       localStorage.clear();
@@ -496,8 +518,6 @@ export const useWorkoutState = () => {
         };
       });
 
-      console.log('Raw workout data:', workoutData);
-      console.log('Formatted workouts:', formattedWorkouts);
       setWorkouts(formattedWorkouts);
     } catch (error) {
       console.error('Error fetching workouts:', error instanceof Error ? error.message : 'Unknown error');
@@ -514,7 +534,6 @@ export const useWorkoutState = () => {
   }, [currentDate, selectedUserId]);
 
   const handleUserChange = async (userId: string) => {
-    console.log('handleUserChange called with:', userId);
     try {
       // First clear all state
       setWorkouts({});

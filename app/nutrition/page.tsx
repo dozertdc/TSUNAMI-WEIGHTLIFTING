@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useWorkoutState } from '@/hooks/useWorkoutState';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,6 +34,7 @@ export default function NutritionPage() {
   const [nutritionData, setNutritionData] = useState<Record<string, DayNutrition>>({});
   const [editingDays, setEditingDays] = useState<Set<string>>(new Set());
   const [unsavedChanges, setUnsavedChanges] = useState<Record<string, DayNutrition>>({});
+  const hasScrolledToToday = useRef(false);
   
   const calculateCalories = (protein: number, carbs: number, fat: number) => {
     return (protein * 4) + (carbs * 4) + (fat * 9);
@@ -54,8 +55,6 @@ export default function NutritionPage() {
         return;
       }
 
-      console.log('Fetching nutrition data:', { userId, startDate, endDate });
-
       const response = await fetch(
         `http://localhost:3001/api/nutrition/user/${userId}?startDate=${startDate}&endDate=${endDate}`,
         {
@@ -74,13 +73,10 @@ export default function NutritionPage() {
       }
 
       const data = await response.json();
-      console.log('Raw nutrition data:', data);
 
       const formattedData = data.reduce((acc: Record<string, DayNutrition>, item: any) => {
         // Convert the date to YYYY-MM-DD format if it isn't already
         const dateKey = new Date(item.date).toISOString().split('T')[0];
-        
-        console.log('Processing date:', dateKey, item);
         
         acc[dateKey] = {
           protein: Number(item.protein_grams) || null,
@@ -93,7 +89,6 @@ export default function NutritionPage() {
         return acc;
       }, {});
 
-      console.log('Formatted nutrition data:', formattedData);
       setNutritionData(formattedData);
     } catch (error: any) {
       console.error('Error fetching nutrition:', error);
@@ -157,7 +152,6 @@ export default function NutritionPage() {
       }
 
       const savedData = await response.json();
-      console.log('Saved nutrition data:', savedData);
 
       setNutritionData(prev => ({
         ...prev,
@@ -200,7 +194,6 @@ export default function NutritionPage() {
       }
 
       const userId = JSON.parse(user).id;
-      console.log('Current user ID:', userId);
       
       try {
         const response = await fetch(`http://localhost:3001/api/users/${userId}/user-and-athletes`, {
@@ -216,7 +209,6 @@ export default function NutritionPage() {
         }
 
         const data = await response.json();
-        console.log('Fetched users:', data);
         
         const formattedUsers = data.map((user: any) => ({
           id: user.id.toString(),
@@ -252,7 +244,6 @@ export default function NutritionPage() {
 
   useEffect(() => {
     if (!selectedUserId) {
-      console.log('No user selected, skipping fetch');
       return;
     }
 
@@ -262,12 +253,6 @@ export default function NutritionPage() {
     // Use the first and last dates from the calendar view
     const startDate = calendarDates[0].date;
     const endDate = calendarDates[calendarDates.length - 1].date;
-
-    console.log('Fetching nutrition with:', {
-      selectedUserId,
-      startDate: startDate.toISOString().split('T')[0],
-      endDate: endDate.toISOString().split('T')[0]
-    });
 
     fetchNutritionData(
       selectedUserId,
@@ -382,20 +367,18 @@ export default function NutritionPage() {
   const scrollToToday = () => {
     const today = new Date();
     const todayStr = getLocalDateString(today);
-    console.log('Today in local timezone:', todayStr);
     const element = document.getElementById(`day-${todayStr}`);
     if (element) {
       element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    } else {
-      console.log('Could not find element for today:', `day-${todayStr}`);
     }
   };
 
-  // Add useEffect for initial scroll
+  // Modify the useEffect for initial scroll
   useEffect(() => {
-    if (workouts) {
+    if (workouts && !hasScrolledToToday.current) {
       const timer = setTimeout(() => {
         scrollToToday();
+        hasScrolledToToday.current = true;  // Mark that we've scrolled
       }, 100);
       return () => clearTimeout(timer);
     }
@@ -623,7 +606,6 @@ export default function NutritionPage() {
             <div className="space-y-4 mt-4">
               {getDaysInMonth(currentDate).map((day, index) => {
                 const dateKey = getLocalDateString(day.date);
-                console.log('Rendering date:', dateKey, nutritionData[dateKey]);
                 
                 const dayData = nutritionData[dateKey] || {
                   protein: null,

@@ -26,8 +26,7 @@ export const findUserByEmail = async (email: string) => {
     WHERE email = $1`;
   
   const result = await pool.query(query, [email]);
-  const user = result.rows[0];
-  console.log('Found user in DB:', { ...user, password_hash: !!user?.password_hash }); // Debug log
+  const user = result.rows[0];// Debug log
   return user;
 };
 
