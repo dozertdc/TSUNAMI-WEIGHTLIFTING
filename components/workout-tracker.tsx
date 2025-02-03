@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useMemo, useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, Plus, Edit, ChevronDown, ChevronUp, Trash, CheckCircle } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
