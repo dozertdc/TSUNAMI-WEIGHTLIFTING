@@ -38,7 +38,7 @@ export function ExerciseList({ exercises, onUpdateExercises }: ExerciseListProps
           return;
         }
 
-        const response = await fetch(`http://localhost:3001/api/exercises/user/${userId}`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/exercises/user/${userId}`, {
           credentials: 'include',
         });
         
@@ -89,7 +89,7 @@ export function ExerciseList({ exercises, onUpdateExercises }: ExerciseListProps
         one_rep_max: tempOneRM ? parseFloat(tempOneRM) : undefined
       };
 
-      const response = await fetch(`http://localhost:3001/api/exercises/user/${userId}/${exercise.id}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/exercises/user/${userId}/${exercise.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

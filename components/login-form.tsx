@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
+import { config } from '@/lib/config'
 
 const formSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -40,27 +41,28 @@ export function LoginForm() {
     setError('')
 
     try {
-      const response = await fetch('http://localhost:3001/api/users/login', {
+      const response = await fetch(`${config.apiUrl}/api/users/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify(values),
       })
 
-      const data = await response.json()
-
-      if (response.ok) {
-        localStorage.setItem('user', JSON.stringify(data))
-        localStorage.setItem('isAuthenticated', 'true')
-        setUserId(data.id)
-        router.push('/dashboard')
-      } else {
-        setError(data.error || 'Login failed')
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Login failed')
       }
+
+      const data = await response.json()
+      localStorage.setItem('user', JSON.stringify(data))
+      localStorage.setItem('isAuthenticated', 'true')
+      setUserId(data.id)
+      router.push('/dashboard')
     } catch (error) {
       console.error('Login error:', error)
-      setError('An error occurred during login')
+      setError(error instanceof Error ? error.message : 'Network error - please check your connection')
     } finally {
       setIsLoading(false)
     }

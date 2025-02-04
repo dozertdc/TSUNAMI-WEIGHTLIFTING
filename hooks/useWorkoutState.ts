@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Exercise, Workouts, Set, MacroData, Maximums } from '../types/workout';
+import { config } from '@/lib/config';
 
 const getMaximums = async () => {
   try {
@@ -46,7 +47,7 @@ export const useWorkoutState = () => {
           console.error('No user ID found');
           return;
         }
-        const response = await fetch(`http://localhost:3001/api/exercises/user/${userId}`);
+        const response = await fetch(`${config.apiUrl}/api/exercises/user/${userId}`);
         const data = await response.json();
         const exerciseNames = data.map((exercise: any) => exercise.name);
         setExerciseList(exerciseNames);
@@ -130,7 +131,7 @@ export const useWorkoutState = () => {
   };
 
   const saveWorkout = async (workout) => {
-    const response = await fetch(`${API_URL}/workouts`, {
+    const response = await fetch(`${config.apiUrl}/workouts`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -269,7 +270,7 @@ export const useWorkoutState = () => {
     try {
       // Delete from database
       const response = await fetch(
-        `http://localhost:3001/api/workouts/${workout.id}/exercises/${exerciseId}`,
+        `${config.apiUrl}/api/workouts/${workout.id}/exercises/${exerciseId}`,
         {
           method: 'DELETE',
           credentials: 'include'
@@ -358,8 +359,8 @@ export const useWorkoutState = () => {
       const existingWorkout = workouts[dateKey];
       const method = existingWorkout ? 'PUT' : 'POST';
       const url = existingWorkout 
-        ? `http://localhost:3001/api/workouts/${existingWorkout.id}`
-        : 'http://localhost:3001/api/workouts';
+        ? `${config.apiUrl}/api/workouts/${existingWorkout.id}`
+        : `${config.apiUrl}/api/workouts`;
 
       const response = await fetch(url, {
         method,
@@ -449,7 +450,7 @@ export const useWorkoutState = () => {
       endDate.setDate(endDate.getDate() + daysToAdd); // Go forward to Saturday
 
       const response = await fetch(
-        `http://localhost:3001/api/workouts?` + 
+        `${config.apiUrl}/api/workouts?` + 
         `userId=${userId}&` +
         `startDate=${startDate.toISOString().split('T')[0]}&` +
         `endDate=${endDate.toISOString().split('T')[0]}`,
@@ -585,7 +586,7 @@ export const useWorkoutState = () => {
 
         // Delete from database
         const response = await fetch(
-          `http://localhost:3001/api/workouts/${workout.id}/exercises/${editingExercise.id}/sets/${setToRemove.id}`,
+          `${config.apiUrl}/api/workouts/${workout.id}/exercises/${editingExercise.id}/sets/${setToRemove.id}`,
           {
             method: 'DELETE',
             credentials: 'include',
@@ -640,7 +641,7 @@ export const useWorkoutState = () => {
       
       if (!workout) return;
 
-      const response = await fetch(`http://localhost:3001/api/workouts/${workout.id}`, {
+      const response = await fetch(`${config.apiUrl}/api/workouts/${workout.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

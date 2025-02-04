@@ -2,6 +2,7 @@ import { Metadata } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
 import { LoginForm } from '@/components/login-form'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 export const metadata: Metadata = {
   title: 'Login | Tsunami Weightlifting System',
@@ -28,7 +29,9 @@ export default function LoginPage() {
           </p>
         </div>
         <div className="mt-6">
-          <LoginForm />
+          <ErrorBoundary>
+            <LoginForm />
+          </ErrorBoundary>
         </div>
         <p className="mt-6 text-center text-sm text-muted-foreground">
           <Link
