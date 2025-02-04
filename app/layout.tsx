@@ -1,17 +1,38 @@
-import '@/styles/globals.css'
-import { Metadata } from 'next'
-import { Header } from '@/components/Header'
+'use client';
 
-export const metadata: Metadata = {
-  title: 'Tsunami Weightlifting System',
-  description: 'Track your weightlifting progress with precision',
-}
+import '@/styles/globals.css'
+import { Header } from '@/components/Header'
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 interface RootLayoutProps {
   children: React.ReactNode
 }
 
 export default function RootLayout({ children }: RootLayoutProps) {
+  const router = useRouter();
+
+  useEffect(() => {
+    const handleStorageCheck = () => {
+      const user = localStorage.getItem('user');
+      const isAuth = localStorage.getItem('isAuthenticated');
+      
+      if (!user || !isAuth) {
+        if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
+          router.push('/login');
+        }
+      }
+    };
+
+    // Check on mount
+    handleStorageCheck();
+
+    // Check when app comes back to focus
+    window.addEventListener('focus', handleStorageCheck);
+    
+    return () => window.removeEventListener('focus', handleStorageCheck);
+  }, [router]);
+
   return (
     <html lang="en">
       <body>

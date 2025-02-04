@@ -4,7 +4,7 @@ import { config } from '@/lib/config';
 
 const getMaximums = async () => {
   try {
-    const response = await fetch('http://localhost:3001/api/maximums');
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/maximums`);
     const data = await response.json();
     return data;
   } catch (error) {

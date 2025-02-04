@@ -51,7 +51,7 @@ export default function ProfilePage() {
       if (!user) return;
 
       const userId = JSON.parse(user).id;
-      const response = await fetch(`http://localhost:3001/api/users/${userId}/profile`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/${userId}/profile`, {
         credentials: 'include'
       });
 
@@ -78,7 +78,7 @@ export default function ProfilePage() {
   useEffect(() => {
     const fetchCoaches = async () => {
       try {
-        const response = await fetch('http://localhost:3001/api/users/coaches', {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/coaches`, {
           credentials: 'include'
         });
         
@@ -122,7 +122,7 @@ export default function ProfilePage() {
       }
 
       const userId = JSON.parse(user).id;
-      const response = await fetch(`http://localhost:3001/api/users/${userId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/${userId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

@@ -26,7 +26,7 @@ export default function AnalyzerPage() {
         }
         const userId = JSON.parse(user).id;
 
-        const response = await fetch(`http://localhost:3001/api/users/${userId}/user-and-athletes`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users/${userId}/user-and-athletes`, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
