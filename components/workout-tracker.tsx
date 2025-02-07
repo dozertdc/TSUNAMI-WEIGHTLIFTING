@@ -35,6 +35,15 @@ const commonSelectTriggerStyles = "bg-black text-white hover:bg-gray-800 hover:t
 const commonSelectContentStyles = "bg-black text-white border border-gray-700";
 const commonSelectItemStyles = "cursor-pointer font-bold hover:bg-gray-800 hover:text-white focus:bg-gray-800 focus:text-white";
 
+const mobileStyles = {
+  statsSection: "hidden md:block", // Hide on mobile, show on desktop
+  statsContainer: "space-y-2",
+  statsRow: "grid grid-cols-5 gap-2 bg-gray-50 p-2 rounded-lg",
+  statCard: "p-2 rounded-lg",
+  statLabel: "font-semibold",
+  statValue: "text-lg font-bold",
+};
+
 const WorkoutTracker: React.FC = () => {
   const {
     workouts,
@@ -491,53 +500,55 @@ const WorkoutTracker: React.FC = () => {
             </div>
           </div>
 
-          {/* Summary Statistics */}
-          <div className="space-y-2">
-            {/* Weekly Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-2 bg-gray-50 p-2 rounded-lg text-xs">
-              <div className="bg-blue-50 p-2 rounded-lg">
-                <p className="font-semibold text-blue-700">Weekly Sets</p>
-                <p className="text-lg font-bold">{formatNumberWithCommas(weeklyStats.sets)}</p>
+          {/* Stats Section - Hidden on Mobile */}
+          <div className={mobileStyles.statsSection}>
+            <div className={mobileStyles.statsContainer}>
+              {/* Weekly Stats */}
+              <div className={mobileStyles.statsRow}>
+                <div className="bg-blue-50 p-2 rounded-lg">
+                  <p className="font-semibold text-blue-700">Weekly Sets</p>
+                  <p className="text-lg font-bold">{formatNumberWithCommas(weeklyStats.sets)}</p>
+                </div>
+                <div className="bg-green-50 p-2 rounded-lg">
+                  <p className="font-semibold text-green-700">Weekly Reps</p>
+                  <p className="text-lg font-bold">{formatNumberWithCommas(weeklyStats.reps)}</p>
+                </div>
+                <div className="bg-purple-50 p-2 rounded-lg">
+                  <p className="font-semibold text-purple-700">Weekly Tonnage</p>
+                  <p className="text-lg font-bold">{formatNumberWithCommas(Math.round(weeklyStats.tonnage))} kg</p>
+                </div>
+                <div className="bg-orange-50 p-2 rounded-lg">
+                  <p className="font-semibold text-orange-700">Weekly Intensity</p>
+                  <p className="text-lg font-bold">{formatNumberWithCommas(Math.round(weeklyStats.avgIntensity))} kg</p>
+                </div>
+                <div className="bg-indigo-50 p-2 rounded-lg">
+                  <p className="font-semibold text-indigo-700">ACWR</p>
+                  <p className="text-lg font-bold">{acwr.toFixed(2)}</p>
+                </div>
               </div>
-              <div className="bg-green-50 p-2 rounded-lg">
-                <p className="font-semibold text-green-700">Weekly Reps</p>
-                <p className="text-lg font-bold">{formatNumberWithCommas(weeklyStats.reps)}</p>
-              </div>
-              <div className="bg-purple-50 p-2 rounded-lg">
-                <p className="font-semibold text-purple-700">Weekly Tonnage</p>
-                <p className="text-lg font-bold">{formatNumberWithCommas(Math.round(weeklyStats.tonnage))} kg</p>
-              </div>
-              <div className="bg-orange-50 p-2 rounded-lg">
-                <p className="font-semibold text-orange-700">Weekly Intensity</p>
-                <p className="text-lg font-bold">{formatNumberWithCommas(Math.round(weeklyStats.avgIntensity))} kg</p>
-              </div>
-              <div className="bg-indigo-50 p-2 rounded-lg">
-                <p className="font-semibold text-indigo-700">ACWR</p>
-                <p className="text-lg font-bold">{acwr.toFixed(2)}</p>
-              </div>
-            </div>
 
-            {/* Monthly Stats */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-2 bg-gray-50 p-2 rounded-lg text-xs">
-              <div className="bg-blue-50 p-2 rounded-lg">
-                <p className="font-semibold text-blue-700">Monthly Sets</p>
-                <p className="text-lg font-bold">{formatNumberWithCommas(monthlyStats.sets)}</p>
-              </div>
-              <div className="bg-green-50 p-2 rounded-lg">
-                <p className="font-semibold text-green-700">Monthly Reps</p>
-                <p className="text-lg font-bold">{formatNumberWithCommas(monthlyStats.reps)}</p>
-              </div>
-              <div className="bg-purple-50 p-2 rounded-lg">
-                <p className="font-semibold text-purple-700">Monthly Tonnage</p>
-                <p className="text-lg font-bold">{formatNumberWithCommas(Math.round(monthlyStats.tonnage))} kg</p>
-              </div>
-              <div className="bg-orange-50 p-2 rounded-lg">
-                <p className="font-semibold text-orange-700">Monthly Intensity</p>
-                <p className="text-lg font-bold">{formatNumberWithCommas(Math.round(monthlyStats.avgIntensity))} kg</p>
-              </div>
-              <div className="bg-indigo-50 p-2 rounded-lg">
-                <p className="font-semibold text-indigo-700">Monthly Avg/Day</p>
-                <p className="text-lg font-bold">{formatNumberWithCommas(Math.round(monthlyStats.tonnage / 30))} kg</p>
+              {/* Monthly Stats */}
+              <div className={mobileStyles.statsRow}>
+                <div className="bg-blue-50 p-2 rounded-lg">
+                  <p className="font-semibold text-blue-700">Monthly Sets</p>
+                  <p className="text-lg font-bold">{formatNumberWithCommas(monthlyStats.sets)}</p>
+                </div>
+                <div className="bg-green-50 p-2 rounded-lg">
+                  <p className="font-semibold text-green-700">Monthly Reps</p>
+                  <p className="text-lg font-bold">{formatNumberWithCommas(monthlyStats.reps)}</p>
+                </div>
+                <div className="bg-purple-50 p-2 rounded-lg">
+                  <p className="font-semibold text-purple-700">Monthly Tonnage</p>
+                  <p className="text-lg font-bold">{formatNumberWithCommas(Math.round(monthlyStats.tonnage))} kg</p>
+                </div>
+                <div className="bg-orange-50 p-2 rounded-lg">
+                  <p className="font-semibold text-orange-700">Monthly Intensity</p>
+                  <p className="text-lg font-bold">{formatNumberWithCommas(Math.round(monthlyStats.avgIntensity))} kg</p>
+                </div>
+                <div className="bg-indigo-50 p-2 rounded-lg">
+                  <p className="font-semibold text-indigo-700">Monthly Avg/Day</p>
+                  <p className="text-lg font-bold">{formatNumberWithCommas(Math.round(monthlyStats.tonnage / 30))} kg</p>
+                </div>
               </div>
             </div>
           </div>
